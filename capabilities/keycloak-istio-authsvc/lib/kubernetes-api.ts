@@ -124,4 +124,22 @@ export class K8sAPI {
 
   }
 
+  async createSecret(secretName, namespace, location, text) {
+  
+    // Create the Secret object
+    const secret = {
+      apiVersion: 'v1',
+      kind: 'Secret',
+      metadata: {
+        name: secretName,
+        namespace: namespace,
+      },
+      data: {
+        [location]: Buffer.from(text).toString('base64'),
+      },
+    };
+
+      const response = await this.k8sApi.createNamespacedSecret(namespace, secret);
+  }
+  
 }

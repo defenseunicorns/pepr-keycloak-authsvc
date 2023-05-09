@@ -1,6 +1,7 @@
 import { fetch, Capability, a } from "pepr";
 import { KCAPI } from "./lib/kc-api";
-import { Config } from "./lib/authservice/secretConfig";
+import { Config, FilterChain, CreateChainInput } from "./lib/authservice/secretConfig";
+import { K8sAPI } from "./lib/kubernetes-api"
 
 
 export const KeycloakIstioAuthSvc = new Capability({
@@ -31,7 +32,8 @@ When(a.Secret)
     request.SetLabel("done", "validated-syntax")
   })
 
-// pepr-crumbs??? :) 
+
+
 // CreateRealm
 When(a.Secret)
   .IsCreatedOrUpdated()
@@ -58,6 +60,8 @@ When(a.Secret)
 
     // 1. get the new clientsecret
     const realmName = getVal(request.Raw.data, "realmName");
+
+
     const clientId = getVal(request.Raw.data, "clientId");
     const clientName = getVal(request.Raw.data, "clientName");
     const kcAPI = new KCAPI(keycloakBaseUrl)
@@ -69,25 +73,60 @@ When(a.Secret)
       authorization_endpoint: string
       token_endpoint: string
       jwks_uri: string
+      end_session_endpoint: string
     }
 
     const response = await fetch<kcOpenIdData>(`${keycloakBaseUrl}/realms/${realmName}/.well-known/openid-configuration`)
     if (!response.ok) {
       throw new Error(`failed to get openid-configuration for realm ${realmName}`)
     }
-
+    
     request.Raw.data['clientSecret'] = Buffer.from(clientSecret).toString("base64")
     request.Raw.data['authorization_uri'] = Buffer.from(response.data.authorization_endpoint).toString("base64")
     request.Raw.data['token_uri'] = Buffer.from(response.data.token_endpoint).toString("base64")
     request.Raw.data['jwks_uri'] = Buffer.from(response.data.jwks_uri).toString("base64")
     request.Raw.data['redirect_uri'] = Buffer.from(redirectUri).toString("base64")
+    request.Raw.data['logout_uri'] = Buffer.from(response.data.end_session_endpoint).toString("base64")
 
     request.RemoveLabel("todo")
     request.SetLabel("done", "clientcreated")
+
+    // get the existing config.json secret
+    const k8sApi = new K8sAPI();
+    const configRaw = await k8sApi.getSecretValue(
+      "authservice",
+      "authservice",
+      "config.json"
+    )
+    const oldConfig = new Config(JSON.parse(configRaw))
+
+    const chainInput:  CreateChainInput = {
+      name: clientName,
+      authorization_uri: response.data.authorization_endpoint,
+      token_uri: response.data.token_endpoint,
+      jwks_uri: response.data.jwks_uri,
+      redirect_uri: redirectUri,
+      clientSecret: clientSecret,
+      logout_uri: response.data.end_session_endpoint,
+      }
+      
+      const newConfig = new Config({
+        chains: [Config.CreateSingleChain(chainInput)],
+        listen_address: oldConfig.listen_address,
+        listen_port: oldConfig.listen_port,
+        log_level: oldConfig.log_level,
+        threads: oldConfig.threads,
+      })
+
+      await k8sApi.createSecret("authservice2", "authservice", "config.json", JSON.stringify(newConfig)) 
+
+
+
     request.SetLabel("todo", "setupauthservice")
+    
   })
 
-
+/*
 
 // SetupAuthService (will write to the authservice namespace, so it can be managed properly)
 When(a.Secret)
@@ -108,7 +147,7 @@ When(a.Secret)
   //    3. peerauthentications (mtls config) (only need 1)
   //    4. deployment/sts needs to be tagged to be secured, the protect:keycloak label isn't clear enough, we'll add a better one.
   })
-
+*/
 
 
 // keycloak: create a user (example only)
