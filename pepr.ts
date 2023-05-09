@@ -1,7 +1,7 @@
 import { Log, PeprModule } from "pepr";
 // cfg loads your pepr configuration from package.json
 import cfg from "./package.json";
-import { KeycloakIstioAuthSvc } from "./capabilities/keycloak-istio-authsvc";
+import { Keycloak } from "./capabilities/keycloak";
 
 /**
  * This is the main entrypoint for this Pepr module. It is run when the module is started.
@@ -10,7 +10,7 @@ import { KeycloakIstioAuthSvc } from "./capabilities/keycloak-istio-authsvc";
 new PeprModule(
   cfg,
   [
-    KeycloakIstioAuthSvc,
+    Keycloak,
     // Your additional capabilities go here
   ],
   {
