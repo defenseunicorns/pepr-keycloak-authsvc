@@ -1,0 +1,17 @@
+image:
+  repository: ghcr.io/istio-ecosystem/authservice/authservice
+  tag: 0.5.3
+
+global:
+  oidc:
+    host: keycloak.bigbang.dev
+    realm: demo
+
+chains:
+  podinfo:
+    match:
+      header: ":authority"
+      prefix: "APPNAME"
+    callback_uri: "https://APPNAME.bigbang.net/login/generic_oauth"
+    client_id: "APPNAME"
+    client_secret: "APPCLIENTSECRET"

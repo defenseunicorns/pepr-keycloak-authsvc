@@ -1,3 +1,3 @@
-import { KeycloakIstioAuthSvc } from "./capabilities/keycloak-istio-authsvc";
+import { Keycloak } from "./capabilities/keycloak";
 
-export { KeycloakIstioAuthSvc };
+export { Keycloak };
