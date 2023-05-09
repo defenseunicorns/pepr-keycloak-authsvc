@@ -1,6 +1,6 @@
 import { fetch, Capability, a } from "pepr";
 import { KCAPI } from "./lib/kc-api";
-import { Config, FilterChain, CreateChainInput } from "./lib/authservice/secretConfig";
+import { Config, CreateChainInput } from "./lib/authservice/secretConfig";
 import { K8sAPI } from "./lib/kubernetes-api"
 
 
@@ -118,7 +118,7 @@ When(a.Secret)
         threads: oldConfig.threads,
       })
 
-      await k8sApi.createSecret("authservice2", "authservice", "config.json", JSON.stringify(newConfig)) 
+      await k8sApi.createOrUpdateSecret("authservice", "authservice", "config.json", JSON.stringify(newConfig)) 
 
 
 

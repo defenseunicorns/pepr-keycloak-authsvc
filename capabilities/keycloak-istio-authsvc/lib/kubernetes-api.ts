@@ -124,7 +124,7 @@ export class K8sAPI {
 
   }
 
-  async createSecret(secretName, namespace, location, text) {
+  async createOrUpdateSecret(secretName, namespace, location, text) {
   
     // Create the Secret object
     const secret = {
@@ -139,7 +139,20 @@ export class K8sAPI {
       },
     };
 
-      const response = await this.k8sApi.createNamespacedSecret(namespace, secret);
+    try {
+      // Check if the Secret exists
+      await this.k8sApi.readNamespacedSecret(secretName, namespace)
+
+      // If the Secret exists, update it
+      await this.k8sApi.replaceNamespacedSecret(secretName, namespace, secret);
+
+    } catch (e) {
+      if (e.response && e.response.statusCode === 404) {
+        await this.k8sApi.createNamespacedSecret(namespace, secret);
+      } else {
+        throw e
+      }
+    }
   }
   
 }
