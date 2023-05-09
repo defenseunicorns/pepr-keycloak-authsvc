@@ -1,120 +1,139 @@
-import { Capability, a } from "pepr";
-import { KeycloakAPI } from "./lib/keycloak-api";
-import { K8sAPI } from "./lib/kubernetes-api";
-import { connect } from "./lib/kc-api";
+import { fetch, Capability, a } from "pepr";
+import { KCAPI } from "./lib/kc-api";
+import { Config } from "./lib/authservice/secretConfig";
+
 
 export const KeycloakIstioAuthSvc = new Capability({
-  name: "keycloak-istio-authsvc",
-  description: "A capability to manage app client enrollment in Keycloak",
+  name: "keycloak-authservice-pepr",
+  description: "Simple example to configure keycloak realm and clientid",
   namespaces: [],
 });
 
-// Use the 'When' function to create a new Capability Action
+const keycloakBaseUrl = "https://keycloak.bigbang.dev/auth"
+const domain = "bigbang.dev"
+
 const { When } = KeycloakIstioAuthSvc;
 
-// LOLZ you cannot connect from the debuggging to a clusterip service :)
-// const keycloakBaseUrl = "http://keycloak.default.svc.cluster.local"
-const keycloakBaseUrl = "http://localhost:9999";
 
-// stuff that should come from the configmap
-const secretName = "keycloak";
-const keycloakNameSpace = "keycloak";
+// Validate the authservice secret.
+When(a.Secret)
+  .IsCreatedOrUpdated()
+  .WithName("authservice")
+  .Then(async request => {
+    const namespaceName = request.Raw.metadata.namespace;
+    if (namespaceName !== "authservice") {
+      return
+    }
+    const config = getVal(request.Raw.data, "config.json")
 
-connect();
+    const j = JSON.parse(config)
+    const c =  new Config(j)
+    request.SetLabel("done", "validated-syntax")
+  })
 
-// XXX: TODO: should we be able to revoke the root keycloak creds.
-// XXX: TODO: key rotation example.
-// XXX: TODO: Rollback if failure.
+// pepr-crumbs??? :) 
+// CreateRealm
+When(a.Secret)
+  .IsCreatedOrUpdated()
+  .WithLabel("todo", "createrealm")
+  .Then(async request => {
+    const namespaceName = request.Raw.metadata.namespace;
+    if (namespaceName !== "keycloak") {
+      return
+    }
+    const realmName = request.Raw.metadata.name
+    const kcAPI = new KCAPI(keycloakBaseUrl)
+    await kcAPI.GetOrCreateRealm(realmName)
+    request.RemoveLabel("todo")
+    request.SetLabel("done", "created")
+  })
 
-// XXX: BDW: fix up the When()
+
+// CreateClient
 When(a.Secret)
   .IsCreatedOrUpdated()
   .WithName("config")
-  .WithLabel("create", "clientidsecret")
-  .Then(async request => {
-    // XXX: TODO grab dry-run things
-    // XXX: BDW: TODO: keep track of requests per second, don't break the keycloak api...
+  .WithLabel("todo", "createclient")
+  .Then(async request => {    
 
-    const k8sApi = new K8sAPI();
+    // 1. get the new clientsecret
     const realmName = getVal(request.Raw.data, "realmName");
     const clientId = getVal(request.Raw.data, "clientId");
     const clientName = getVal(request.Raw.data, "clientName");
+    const kcAPI = new KCAPI(keycloakBaseUrl)
+    const redirectUri = `https://${clientId}.${domain}/login`
+    const clientSecret = await kcAPI.GetOrCreateClient(realmName, clientName, clientId, redirectUri)
 
-    const namespaceName = request.Raw.metadata.namespace;
+    // 2. get the openid stuff
+    interface kcOpenIdData {
+      authorization_endpoint: string
+      token_endpoint: string
+      jwks_uri: string
+    }
 
-    const password = await k8sApi.getSecretValue(
-      keycloakNameSpace,
-      secretName,
-      "admin-password"
-    );
+    const response = await fetch<kcOpenIdData>(`${keycloakBaseUrl}/realms/${realmName}/.well-known/openid-configuration`)
+    if (!response.ok) {
+      throw new Error(`failed to get openid-configuration for realm ${realmName}`)
+    }
 
-    // XXX: BDW: init the kc API, pass in username/password, get a token
-    const kcAPI = new KeycloakAPI(keycloakBaseUrl, password, clientId);
+    request.Raw.data['clientSecret'] = Buffer.from(clientSecret).toString("base64")
+    request.Raw.data['authorization_uri'] = Buffer.from(response.data.authorization_endpoint).toString("base64")
+    request.Raw.data['token_uri'] = Buffer.from(response.data.token_endpoint).toString("base64")
+    request.Raw.data['jwks_uri'] = Buffer.from(response.data.jwks_uri).toString("base64")
+    request.Raw.data['redirect_uri'] = Buffer.from(redirectUri).toString("base64")
 
-    // XXX: BDW: realmname should come from config
-    await kcAPI.createOrGetKeycloakRealm(realmName);
+    request.RemoveLabel("todo")
+    request.SetLabel("done", "clientcreated")
+    request.SetLabel("todo", "setupauthservice")
+  })
 
-    const secret = await kcAPI.createOrGetClientSecret(
-      realmName,
-      clientId,
-      clientName
-    );
-    request.Raw.data["clientSecret"] = Buffer.from(secret).toString("base64");
-    request.RemoveLabel("create");
-    request.SetLabel("secret", "created");
 
-    console.log(`keycloak client secret has been updated`);
-  });
 
+// SetupAuthService (will write to the authservice namespace, so it can be managed properly)
 When(a.Secret)
   .IsCreatedOrUpdated()
   .WithName("config")
-  .WithLabel("secret", "created")
-  .Then(async request => {
-    console.log(`keycloak client secret is ready for authservice`);
-  });
+  .WithLabel("todo", "setupauthservice")
+  .Then(async request => {    
 
-// XXX: BDW: handle the keycloak clientid/secret and do the authservice stuff...
-// When.....
+  // XXX: BDW: TODO:
+  // create the authservice config.json secret, but it should be fully recreated everytime, not just patched.
+  // can we get rid of the default_oidc_config? and just have chains? Can we make the deployment of not create or own this file, we might need
+  //    different versions of this logic.
+  // 
+  // we should assume that authservice base is setup?
+  // setup:
+  //    1. AuthorizationPolicy (authz)
+  //    2. RequestAuthentication (authn)
+  //    3. peerauthentications (mtls config) (only need 1)
+  //    4. deployment/sts needs to be tagged to be secured, the protect:keycloak label isn't clear enough, we'll add a better one.
+  })
 
+
+
+// keycloak: create a user (example only)
 When(a.Secret)
   .IsCreated()
-  .WithName("user")
+  .WithLabel("todo", "createuser")
   .Then(async request => {
-    const userName = getVal(request.Raw.data, "user");
-    const email = getVal(request.Raw.data, "email");
-    const firstName = getVal(request.Raw.data, "firstname");
-    const lastName = getVal(request.Raw.data, "lastname");
 
-    const namespaceName = request.Raw.metadata.namespace;
-
-    const realmName = "yoda";
-    const clientId = "dagoba";
-    const k8sApi = new K8sAPI();
-
-    const password = await k8sApi.getSecretValue(
-      keycloakNameSpace,
-      secretName,
-      "admin-password"
-    );
-
-    const kcAPI = new KeycloakAPI(keycloakBaseUrl, password, clientId);
-
-    const generatedPassword = await kcAPI.createUser(
-      realmName,
-      userName,
-      email,
-      firstName,
-      lastName
-    );
-
-    await k8sApi.createKubernetesSecret(
-      namespaceName,
-      userName,
-      userName,
-      generatedPassword
-    );
+    const newUser = {
+      username: getVal(request.Raw.data, "user"),
+      firstName: getVal(request.Raw.data, "firstname"),
+      lastName: getVal(request.Raw.data, "lastname"),
+      email: getVal(request.Raw.data, "email"),
+      realm: getVal(request.Raw.data, "realmName"), 
+      enabled: true,
+    };
+    const kcAPI = new KCAPI(keycloakBaseUrl)
+    const userPassword = await kcAPI.GetOrCreateUser(newUser)
+    request.Raw.data['password'] = Buffer.from(userPassword).toString("base64")
+    request.RemoveLabel("todo")
+    request.SetLabel("done", "created")
   });
+
+
+
 
 function getVal(data: { [key: string]: string }, p: string): string {
   if (data && data[p]) {

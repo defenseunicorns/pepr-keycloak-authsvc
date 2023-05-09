@@ -1,4 +1,4 @@
-import { CoreV1Api, KubeConfig, V1Secret } from "@kubernetes/client-node";
+import { CoreV1Api, KubeConfig, CustomObjectsApi } from "@kubernetes/client-node";
 
 export class K8sAPI {
   k8sApi: CoreV1Api;
@@ -13,7 +13,7 @@ export class K8sAPI {
     namespace: string,
     secretName: string,
     key: string
-  ): Promise<string | undefined> {
+  ): Promise<string> {
     const response = await this.k8sApi.readNamespacedSecret(
       secretName,
       namespace
@@ -25,62 +25,103 @@ export class K8sAPI {
       const decodedValue = Buffer.from(secret[key], "base64").toString("utf-8");
       return decodedValue;
     }
-    console.log(`Could not find key '${key}' in the secret ${secretName}`);
-    return undefined;
+    throw new Error(`Could not find key '${key}' in the secret ${secretName}`);
   }
 
-  async createKubernetesSecret(
-    namespace: string,
-    secretName: string,
-    username: string,
-    password: string
-  ): Promise<void> {
-    const secretManifest: V1Secret = {
-      apiVersion: "v1",
-      kind: "Secret",
-      metadata: {
-        name: secretName,
-        namespace: namespace,
-      },
-      type: "Opaque",
-      data: {
-        username: Buffer.from(username).toString("base64"),
-        password: Buffer.from(password).toString("base64"),
-      },
-    };
-    await this.k8sApi.createNamespacedSecret(namespace, secretManifest);
-    console.log(
-      `Successfully created secret '${secretName}' in namespace '${namespace}'`
-    );
-  }
+  // XXX: TODO:
+  async createResources() {
 
-  async createKubernetesClientSecret(
-    namespace: string,
-    secretName: string,
-    realmname: string,
-    clientid: string,
-    clientname: string,
-    secret: string
-  ) {
-    const secretManifest: V1Secret = {
-      apiVersion: "v1",
-      kind: "Secret",
+    const kc = new KubeConfig();
+    kc.loadFromDefault();
+
+    // Create a customObjectsApi client to interact with the Istio resources
+    const customObjectsApi = kc.makeApiClient(CustomObjectsApi);
+
+
+    // Namespace where the resources will be created
+    const namespace = 'your-namespace';
+
+    // Define the RequestAuthentication resource
+    const requestAuthentication = {
+      apiVersion: 'security.istio.io/v1',
+      kind: 'RequestAuthentication',
       metadata: {
-        name: secretName,
+        name: 'your-request-authentication',
         namespace: namespace,
-        labels: {
-          clientsecret: "true",
+      },
+      spec: {
+        selector: {
+          matchLabels: {
+            app: 'your-app-label',
+          },
         },
-      },
-      type: "Opaque",
-      data: {
-        realmname: Buffer.from(realmname).toString("base64"),
-        clientid: Buffer.from(clientid).toString("base64"),
-        clientname: Buffer.from(clientname).toString("base64"),
-        secret: Buffer.from(secret).toString("base64"),
+        jwtRules: [
+          {
+            issuer: 'your-issuer',
+            jwksUri: 'https://your-jwks-uri.example.com/.well-known/jwks.json',
+          },
+        ],
       },
     };
 
-    await this.k8sApi.createNamespacedSecret(namespace, secretManifest);
+    // Define the AuthorizationPolicy resource
+    const authorizationPolicy = {
+      apiVersion: 'security.istio.io/v1b',
+      kind: 'AuthorizationPolicy',
+      metadata: {
+        name: 'your-authorization-policy',
+        namespace: namespace,
+      },
+      spec: {
+        selector: {
+          matchLabels: {
+            app: 'your-app-label',
+          },
+        },
+        action: 'ALLOW',
+        rules: [
+          {
+            from: [
+              {
+                source: {
+                  requestPrincipals: ['*'],
+                },
+              },
+            ],
+            to: [
+              {
+                operation: {
+                  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+                  paths: ['/your/api/path/*'],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    kc.makeApiClient(CoreV1Api);
+
+    // Create the RequestAuthentication resource
+    const reqAuthResult = await customObjectsApi.createNamespacedCustomObject(
+      'security.istio.io',
+      'v1',
+      requestAuthentication.kind.toLowerCase() + 's',
+      namespace,
+      requestAuthentication
+    );
+    console.log('RequestAuthentication created:', reqAuthResult.body);
+
+    // Create the AuthorizationPolicy resource
+    const authPolicyResult = await customObjectsApi.createNamespacedCustomObject(
+      'security.istio.io',
+      'v1beta1',
+      authorizationPolicy.kind.toLowerCase() + 's',
+      namespace,
+      authorizationPolicy
+    );
+
   }
+
 }
