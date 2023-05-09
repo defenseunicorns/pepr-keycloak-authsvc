@@ -3,7 +3,7 @@ import { Config, CreateChainInput } from "./lib/authservice/secretConfig";
 import { KcAPI } from "./lib/kc-api";
 import { K8sAPI } from "./lib/kubernetes-api";
 
-export const KeycloakAuthSvc = new Capability({
+export const Keycloak = new Capability({
   name: "keycloak-authsvc",
   description: "Simple example to configure keycloak realm and clientid",
   namespaces: [],
@@ -12,7 +12,7 @@ export const KeycloakAuthSvc = new Capability({
 const keycloakBaseUrl = "https://keycloak.bigbang.dev/auth";
 const domain = "bigbang.dev";
 
-const { When } = KeycloakAuthSvc;
+const { When } = Keycloak;
 
 // Validate the authservice secret.
 When(a.Secret)

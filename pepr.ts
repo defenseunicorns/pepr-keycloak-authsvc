@@ -1,5 +1,5 @@
 import { Log, PeprModule } from "pepr";
-import { KeycloakAuthSvc } from "./capabilities/keycloak-authsvc";
+import { Keycloak } from "./capabilities/keycloak";
 // cfg loads your pepr configuration from package.json
 import cfg from "./package.json";
 
@@ -10,7 +10,7 @@ import cfg from "./package.json";
 new PeprModule(
   cfg,
   [
-    KeycloakAuthSvc,
+    Keycloak,
     // Your additional capabilities go here
   ],
   {
