@@ -4,7 +4,7 @@ import { KcAPI } from "./lib/kc-api";
 import { K8sAPI } from "./lib/kubernetes-api";
 
 export const Keycloak = new Capability({
-  name: "keycloak-authsvc",
+  name: "keycloak",
   description: "Simple example to configure keycloak realm and clientid",
   namespaces: [],
 });

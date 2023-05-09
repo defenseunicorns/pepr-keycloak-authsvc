@@ -116,14 +116,14 @@ export class K8sAPI {
     console.log("RequestAuthentication created:", reqAuthResult.body);
 
     // Create the AuthorizationPolicy resource
-    const authPolicyResult =
-      await customObjectsApi.createNamespacedCustomObject(
-        "security.istio.io",
-        "v1beta1",
-        authorizationPolicy.kind.toLowerCase() + "s",
-        namespace,
-        authorizationPolicy
-      );
+
+    await customObjectsApi.createNamespacedCustomObject(
+      "security.istio.io",
+      "v1beta1",
+      authorizationPolicy.kind.toLowerCase() + "s",
+      namespace,
+      authorizationPolicy
+    );
   }
 
   async createSecret(secretName, namespace, location, text) {
@@ -140,9 +140,6 @@ export class K8sAPI {
       },
     };
 
-    const response = await this.k8sApi.createNamespacedSecret(
-      namespace,
-      secret
-    );
+    await this.k8sApi.createNamespacedSecret(namespace, secret);
   }
 }

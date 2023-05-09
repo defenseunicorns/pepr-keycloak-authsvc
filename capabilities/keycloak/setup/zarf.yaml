@@ -1,32 +1,10 @@
 kind: ZarfPackageConfig
 metadata:
-  name: pepr-keycloak-istio-authsvc
-  url: "https://github.com/defenseunicorns/pepr-examples"
+  name: pepr-keycloak-demo
   yolo: true
 
 components:
-  - name: keycloak
-    required: true
-    charts:
-      - name: keycloak
-        url: https://charts.bitnami.com/bitnami
-        version: 14.4.0
-        namespace: keycloak
-    actions:
-      onDeploy:
-        defaults:
-          mute: true
-        before:
-          - cmd: helm uninstall traefik -n kube-system || true
-          - cmd: helm uninstall traefik-crd -n kube-system || true
-        onSuccess:
-          - cmd: |
-              echo "Keycloak admin password:"
-              kubectl get secret -n keycloak keycloak -o yaml | awk -F ': ' '/admin-password/ {print $2}' | base64 -d
-              echo ""
-              echo "Run 'kubectl port-forward svc/keycloak -n keycloak 9999:80' and then navigate to http://localhost:9999/"
-            mute: false
-
+  # XXX: BDW: at this point, I need to know t3fhe domain, and have the certs for istio. since this will setup the gateway
   - name: istio
     required: true
     charts:
@@ -40,7 +18,23 @@ components:
         url: https://istio-release.storage.googleapis.com/charts
         version: 1.17.2
         namespace: istio-system
+      - name: gateway
+        releaseName: istio-gateway
+        url: https://istio-release.storage.googleapis.com/charts
+        version: 1.17.2
+        namespace: istio-system
+    actions:
+      onDeploy:
+        defaults:
+          mute: true
+        onSuccess:
+          - cmd: |
+              echo "creating tls cert/key"
+              kubectl create -n istio-system secret tls creds \
+                  --key=istio-tls.key --cert=istio-tls.crt
+            mute: false
 
+  # XXX: BDW: should be plain, only the bits, not configured yet.
   - name: authservice
     required: true
     charts:
@@ -50,4 +44,37 @@ components:
         version: 0.5.3-bb.7
         namespace: authservice
         valuesFiles:
-          - "authservice-image.yaml"
+          - "authservice-values.yaml"
+
+  # XXX: BDW: keycloak should basically not be configured at this time.
+  # XXX: BDW: todo find minimal config for it.
+  - name: keycloak
+    required: true
+    charts:
+      - name: keycloak
+        url: https://charts.bitnami.com/bitnami
+        version: 14.4.0
+        namespace: keycloak
+        valuesFiles:
+          - "keycloak-values.yaml"
+    actions:
+      onDeploy:
+        defaults:
+          mute: true
+        onSuccess:
+          - cmd: |
+              echo "Keycloak admin password:"
+              kubectl get secret -n keycloak keycloak -o yaml | awk -F ': ' '/admin-password/ {print $2}' | base64 -d
+              echo ""
+              echo "Run 'kubectl port-forward svc/keycloak -n keycloak 9999:80' and then navigate to http://localhost:9999/"
+            mute: false
+
+  # podinfo should have zero config.
+  - name: podinfo
+    required: true
+    charts:
+      - name: podinfo
+        gitPath: chart
+        url: oci://ghcr.io/stefanprodan/charts/podinfo
+        version: 6.3.5
+        namespace: podinfo
