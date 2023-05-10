@@ -14,6 +14,7 @@
     "pepr-module",
     "security"
   ],
+  "main": "dist/index.js",
   "pepr": {
     "name": "Pepr Capabilities",
     "uuid": "e4a35052-c138-55e4-94a7-bb942b1cddc7",
@@ -24,7 +25,8 @@
     }
   },
   "scripts": {
-    "k3d-setup": "k3d cluster delete pepr-dev && k3d cluster create pepr-dev --k3s-arg '--debug@server:0'",
+    "build": "rm -fr dist && tsc",
+    "k3d-setup": "k3d cluster delete pepr-dev && k3d cluster create pepr-dev --k3s-arg '--debug@server:0' -p '443:443@loadbalancer' -p '80:80@loadbalancer' --k3s-arg='--disable=traefik@server:0'",
     "start": "pepr dev",
     "test": "ava",
     "format:check": "eslint capabilities && prettier capabilities --check",
@@ -36,7 +38,7 @@
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "5.59.0",
-    "@typescript-eslint/parser": "5.59.0",
+    "@typescript-eslint/parser": "5.59.2",
     "ava": "5.2.0",
     "eslint": "8.40.0",
     "nock": "13.3.1",
