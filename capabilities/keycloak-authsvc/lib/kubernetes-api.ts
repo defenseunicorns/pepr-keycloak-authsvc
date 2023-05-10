@@ -1,4 +1,8 @@
-import { CoreV1Api, KubeConfig, CustomObjectsApi } from "@kubernetes/client-node";
+import {
+  CoreV1Api,
+  CustomObjectsApi,
+  KubeConfig,
+} from "@kubernetes/client-node";
 
 export class K8sAPI {
   k8sApi: CoreV1Api;
@@ -30,35 +34,33 @@ export class K8sAPI {
 
   // XXX: TODO:
   async createResources() {
-
     const kc = new KubeConfig();
     kc.loadFromDefault();
 
     // Create a customObjectsApi client to interact with the Istio resources
     const customObjectsApi = kc.makeApiClient(CustomObjectsApi);
 
-
     // Namespace where the resources will be created
-    const namespace = 'your-namespace';
+    const namespace = "your-namespace";
 
     // Define the RequestAuthentication resource
     const requestAuthentication = {
-      apiVersion: 'security.istio.io/v1',
-      kind: 'RequestAuthentication',
+      apiVersion: "security.istio.io/v1",
+      kind: "RequestAuthentication",
       metadata: {
-        name: 'your-request-authentication',
+        name: "your-request-authentication",
         namespace: namespace,
       },
       spec: {
         selector: {
           matchLabels: {
-            app: 'your-app-label',
+            app: "your-app-label",
           },
         },
         jwtRules: [
           {
-            issuer: 'your-issuer',
-            jwksUri: 'https://your-jwks-uri.example.com/.well-known/jwks.json',
+            issuer: "your-issuer",
+            jwksUri: "https://your-jwks-uri.example.com/.well-known/jwks.json",
           },
         ],
       },
@@ -66,33 +68,33 @@ export class K8sAPI {
 
     // Define the AuthorizationPolicy resource
     const authorizationPolicy = {
-      apiVersion: 'security.istio.io/v1b',
-      kind: 'AuthorizationPolicy',
+      apiVersion: "security.istio.io/v1b",
+      kind: "AuthorizationPolicy",
       metadata: {
-        name: 'your-authorization-policy',
+        name: "your-authorization-policy",
         namespace: namespace,
       },
       spec: {
         selector: {
           matchLabels: {
-            app: 'your-app-label',
+            app: "your-app-label",
           },
         },
-        action: 'ALLOW',
+        action: "ALLOW",
         rules: [
           {
             from: [
               {
                 source: {
-                  requestPrincipals: ['*'],
+                  requestPrincipals: ["*"],
                 },
               },
             ],
             to: [
               {
                 operation: {
-                  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-                  paths: ['/your/api/path/*'],
+                  methods: ["GET", "POST", "PUT", "DELETE"],
+                  paths: ["/your/api/path/*"],
                 },
               },
             ],
@@ -105,37 +107,37 @@ export class K8sAPI {
 
     // Create the RequestAuthentication resource
     const reqAuthResult = await customObjectsApi.createNamespacedCustomObject(
-      'security.istio.io',
-      'v1',
-      requestAuthentication.kind.toLowerCase() + 's',
+      "security.istio.io",
+      "v1",
+      requestAuthentication.kind.toLowerCase() + "s",
       namespace,
       requestAuthentication
     );
-    console.log('RequestAuthentication created:', reqAuthResult.body);
+    console.log("RequestAuthentication created:", reqAuthResult.body);
 
     // Create the AuthorizationPolicy resource
-    const authPolicyResult = await customObjectsApi.createNamespacedCustomObject(
-      'security.istio.io',
-      'v1beta1',
-      authorizationPolicy.kind.toLowerCase() + 's',
-      namespace,
-      authorizationPolicy
-    );
-
+    const authPolicyResult =
+      await customObjectsApi.createNamespacedCustomObject(
+        "security.istio.io",
+        "v1beta1",
+        authorizationPolicy.kind.toLowerCase() + "s",
+        namespace,
+        authorizationPolicy
+      );
   }
 
   async createOrUpdateSecret(secretName, namespace, location, text) {
   
     // Create the Secret object
     const secret = {
-      apiVersion: 'v1',
-      kind: 'Secret',
+      apiVersion: "v1",
+      kind: "Secret",
       metadata: {
         name: secretName,
         namespace: namespace,
       },
       data: {
-        [location]: Buffer.from(text).toString('base64'),
+        [location]: Buffer.from(text).toString("base64"),
       },
     };
 
@@ -154,5 +156,4 @@ export class K8sAPI {
       }
     }
   }
-  
 }
