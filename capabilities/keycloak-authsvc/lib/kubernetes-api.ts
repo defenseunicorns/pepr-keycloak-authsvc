@@ -1,4 +1,5 @@
 import {
+  AppsV1Api,
   CoreV1Api,
   CustomObjectsApi,
   KubeConfig,
@@ -7,12 +8,14 @@ import {
 export class K8sAPI {
   k8sApi: CoreV1Api;
   customObjectsApi: CustomObjectsApi;
+  k8sAppsV1Api: AppsV1Api;
 
   constructor() {
     const kc = new KubeConfig();
     kc.loadFromDefault();
     this.k8sApi = kc.makeApiClient(CoreV1Api);
     this.customObjectsApi = kc.makeApiClient(CustomObjectsApi);
+    this.k8sAppsV1Api = kc.makeApiClient(AppsV1Api);
   }
 
   async getSecretValue(
@@ -34,7 +37,7 @@ export class K8sAPI {
     throw new Error(`Could not find key '${key}' in the secret ${secretName}`);
   }
 
-  // authn can be in the namespace with the app
+  // only need one per realm (not per client)
   async CreateRequestAuthentication(
     namespace: string,
     name: string,
@@ -74,7 +77,119 @@ export class K8sAPI {
     );
   }
 
-  async createResources(namespace: string, name: string) {
+  async patchNamespaceForIstio(namespace: string) {
+    const patch = [
+      {
+        op: "add",
+        path: "/metadata/labels/istio-injection",
+        value: "enabled",
+      },
+    ];
+    await this.k8sApi.patchNamespace(
+      namespace,
+      patch,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { headers: { "content-type": "application/json-patch+json" } }
+    );
+  }
+
+  async patchDeploymentForKeycloak(namespace: string, deployment: string) {
+    const patch = [
+      {
+        op: "add",
+        path: "/spec/template/metadata/labels/protect",
+        value: "keycloak",
+      },
+    ];
+    await this.k8sAppsV1Api.patchNamespacedDeployment(
+      deployment,
+      namespace,
+      patch,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { headers: { "content-type": "application/json-patch+json" } }
+    );
+  }
+
+  // only need one per realm (not per client)
+  async CreateOrUpdateVirtualService(
+    namespace: string,
+    name: string,
+    gateway: string,
+    domain: string,
+    serviceHost: string,
+    servicePort: number
+  ) {
+    const api = "networking.istio.io";
+    const version = "v1beta1";
+
+    try {
+      await this.customObjectsApi.getNamespacedCustomObject(
+        api,
+        version,
+        namespace,
+        "virtualservices",
+        name
+      );
+      return;
+    } catch (err) {
+      if (err.statusCode !== 404) {
+        throw err;
+      }
+    }
+
+    // Define the RequestAuthentication resource
+    const object = {
+      apiVersion: `${api}/${version}`,
+      kind: "VirtualService",
+      metadata: {
+        name: name,
+        namespace: namespace,
+      },
+      spec: {
+        gateways: [gateway],
+        hosts: [`${namespace}.${domain}`],
+        http: [
+          {
+            match: [
+              {
+                uri: {
+                  prefix: "/",
+                },
+              },
+            ],
+            route: [
+              {
+                destination: {
+                  host: serviceHost,
+                  port: {
+                    number: servicePort,
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    await this.customObjectsApi.createNamespacedCustomObject(
+      api,
+      version,
+      namespace,
+      object.kind.toLowerCase() + "s",
+      object
+    );
+  }
+
+  async createAuthorizationPolicy(namespace: string, name: string) {
     // Define the AuthorizationPolicy resource
     const authorizationPolicy = {
       apiVersion: "security.istio.io/v1b",

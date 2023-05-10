@@ -111,8 +111,11 @@ When(a.Secret)
       logout_uri: openIdData.end_session_endpoint,
     };
 
+    // XXX: make sure we're not just appending.
+    oldConfig.chains.push(Config.CreateSingleChain(chainInput));
+    // XXX: BDW add a second chain
     const newConfig = new Config({
-      chains: [Config.CreateSingleChain(chainInput)],
+      chains: oldConfig.chains,
       listen_address: oldConfig.listen_address,
       listen_port: oldConfig.listen_port,
       log_level: oldConfig.log_level,
@@ -127,12 +130,39 @@ When(a.Secret)
       JSON.stringify(newConfig)
     );
 
+    /*
     await k8sApi.CreateRequestAuthentication(
       request.Raw.metadata.namespace,
       clientName,
       openIdData.issuer,
       openIdData.jwks_uri
     );
+      */
+    // XXX: BDW: really needs to know more about which service to expose...
+    // XXX: BDW: which gateway are we using? we need namespace/gatewayname for it
+    await k8sApi.CreateOrUpdateVirtualService(
+      request.Raw.metadata.namespace,
+      clientName,
+      "default/bigbang",
+      domain,
+      clientName,
+      9898
+    );
+
+    await k8sApi.patchNamespaceForIstio(request.Raw.metadata.namespace);
+
+    // XXX: BDW: we need to find them
+    await k8sApi.patchDeploymentForKeycloak(
+      request.Raw.metadata.namespace,
+      clientName
+    );
+    // TODO: label namespace with istio and keycloak
+    //kubectl label ns keycloak istio-injection=enabled
+    // deployment and stateful set needs to be labeled with protect: keycloak
+    // virtual service needs to be created too
+
+    // XXX: BDW: don't forget to patch the gateway
+    // XXX: BDW: DNS too...
 
     request.SetLabel("todo", "setupauthservice");
   });
