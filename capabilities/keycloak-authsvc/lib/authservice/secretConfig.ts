@@ -135,6 +135,7 @@ export class FilterChain {
 
 export interface CreateChainInput {
   name: string;
+  fqdn: string;
   authorization_uri: string;
   token_uri: string;
   jwks_uri: string;
@@ -205,7 +206,7 @@ export class Config {
 
     return new FilterChain({
       name: input.name,
-      match: new Match({ header: ":authority", prefix: input.name }),
+      match: new Match({ header: ":authority", equality: input.fqdn }),
       filters: [filter],
     });
   }

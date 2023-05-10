@@ -103,6 +103,7 @@ When(a.Secret)
     // create the new config.json secret
     const chainInput: CreateChainInput = {
       name: clientName,
+      fqdn: `${clientName}.${domain}`,
       authorization_uri: openIdData.authorization_endpoint,
       token_uri: openIdData.token_endpoint,
       jwks_uri: openIdData.jwks_uri,
@@ -130,16 +131,18 @@ When(a.Secret)
       JSON.stringify(newConfig)
     );
 
-    /*
+    // XXX: BDW: we only need one Authn per realm.
     await k8sApi.CreateRequestAuthentication(
       request.Raw.metadata.namespace,
       clientName,
       openIdData.issuer,
       openIdData.jwks_uri
     );
-      */
-    // XXX: BDW: really needs to know more about which service to expose...
-    // XXX: BDW: which gateway are we using? we need namespace/gatewayname for it
+
+    // XXX: BDW: we need to know which gateway to use (including the namespace it's in), and we need to patch it to add ${clientName}.${domain} to the hosts
+    // XXX: BDW: we also need to know which service to expose? that might need to go into the `config` secret...
+
+    // XXX: BDW the gateway should not require updating because it should be like "*.bigbang.dev"
     await k8sApi.CreateOrUpdateVirtualService(
       request.Raw.metadata.namespace,
       clientName,
@@ -151,18 +154,12 @@ When(a.Secret)
 
     await k8sApi.patchNamespaceForIstio(request.Raw.metadata.namespace);
 
-    // XXX: BDW: we need to find them
+    // XXX: BDW: we also need to know if we're securing a statefulset too, in which case, we might need to manually restart the
+    // pods for it...
     await k8sApi.patchDeploymentForKeycloak(
       request.Raw.metadata.namespace,
       clientName
     );
-    // TODO: label namespace with istio and keycloak
-    //kubectl label ns keycloak istio-injection=enabled
-    // deployment and stateful set needs to be labeled with protect: keycloak
-    // virtual service needs to be created too
-
-    // XXX: BDW: don't forget to patch the gateway
-    // XXX: BDW: DNS too...
 
     request.SetLabel("todo", "setupauthservice");
   });
