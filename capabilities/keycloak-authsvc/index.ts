@@ -26,7 +26,7 @@ When(a.Secret)
     const config = getVal(request.Raw.data, "config.json");
 
     const j = JSON.parse(config);
-    const c = new Config(j);
+    new Config(j);
     request.SetLabel("done", "validated-syntax");
   });
 

@@ -1,19 +1,16 @@
 import { K8sAPI } from "./kubernetes-api";
 import { generatePassword } from "./util";
 
-
 async function createKcAdminClient(config: any) {
-  const KcAdminClient = (
-    await import('@keycloak/keycloak-admin-client')
-  ).default;
+  const KcAdminClient = (await import("@keycloak/keycloak-admin-client"))
+    .default;
   return new KcAdminClient(config);
 }
-
 
 export class KcAPI {
   keycloakBaseUrl: string;
   init: boolean;
-  client: any
+  client: any;
   password: string;
   k8sApi: K8sAPI;
 
@@ -38,7 +35,7 @@ export class KcAPI {
     );
 
     // XXX: BDW: todo: test with multiple types of keycloak deployments.
-    this.client =  createKcAdminClient({ baseUrl: this.keycloakBaseUrl });
+    this.client = createKcAdminClient({ baseUrl: this.keycloakBaseUrl });
     await this.client.auth({
       username: "user",
       password: this.password,
