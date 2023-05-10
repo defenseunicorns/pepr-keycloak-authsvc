@@ -1,6 +1,6 @@
 export class IdTokenConfig {
-  header = "Bearer";
-  preamble = "Authorization";
+  header = "Authorization";
+  preamble = "Bearer";
 
   toObject(): Record<string, any> {
     return {
@@ -156,7 +156,11 @@ export class OIDCConfig {
     this.callback_uri = json.callback_uri;
     this.client_id = json.client_id;
     this.client_secret = json.client_secret;
-    this.scopes = json.scopes;
+    if ("scopes" in json) {
+      this.scopes = json.scopes;
+    } else {
+      this.scopes = [];
+    }
 
     if ("cookie_name_prefix" in json) {
       this.cookie_name_prefix = json.cookie_name_prefix;
@@ -187,6 +191,8 @@ export class OIDCConfig {
 
     if ("trusted_certificate_authority" in json) {
       this.trusted_certificate_authority = json.trusted_certificate_authority;
+    } else {
+      this.trusted_certificate_authority = "";
     }
 
     if ("proxy_uri" in json) {

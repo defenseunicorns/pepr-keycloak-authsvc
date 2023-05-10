@@ -1,6 +1,6 @@
 import { Capability, a, fetch } from "pepr";
 import { Config, CreateChainInput } from "./lib/authservice/secretConfig";
-import { KcAPI } from "./lib/kc-api";
+import { KcAPI, OpenIdData } from "./lib/kc-api";
 import { K8sAPI } from "./lib/kubernetes-api";
 
 export const KeycloakAuthSvc = new Capability({
@@ -52,11 +52,12 @@ When(a.Secret)
   .WithName("config")
   .WithLabel("todo", "createclient")
   .Then(async request => {
-    // 1. get the new clientsecret
+    // read the content from the secret
     const realmName = getVal(request.Raw.data, "realmName");
-
     const clientId = getVal(request.Raw.data, "clientId");
     const clientName = getVal(request.Raw.data, "clientName");
+
+    // have keycloak generate the new client and return the secret
     const kcAPI = new KcAPI(keycloakBaseUrl);
     const redirectUri = `https://${clientId}.${domain}/login`;
     const clientSecret = await kcAPI.GetOrCreateClient(
@@ -66,38 +67,24 @@ When(a.Secret)
       redirectUri
     );
 
-    // 2. get the openid stuff
-    interface kcOpenIdData {
-      authorization_endpoint: string;
-      token_endpoint: string;
-      jwks_uri: string;
-      end_session_endpoint: string;
-    }
-
-    const response = await fetch<kcOpenIdData>(
-      `${keycloakBaseUrl}/realms/${realmName}/.well-known/openid-configuration`
-    );
-    if (!response.ok) {
-      throw new Error(
-        `failed to get openid-configuration for realm ${realmName}`
-      );
-    }
+    // get the openid data from keycloak
+    const openIdData = await kcAPI.GetOpenIdData(realmName);
 
     request.Raw.data["clientSecret"] =
       Buffer.from(clientSecret).toString("base64");
     request.Raw.data["authorization_uri"] = Buffer.from(
-      response.data.authorization_endpoint
+      openIdData.authorization_endpoint
     ).toString("base64");
     request.Raw.data["token_uri"] = Buffer.from(
-      response.data.token_endpoint
+      openIdData.token_endpoint
     ).toString("base64");
-    request.Raw.data["jwks_uri"] = Buffer.from(response.data.jwks_uri).toString(
+    request.Raw.data["jwks_uri"] = Buffer.from(openIdData.jwks_uri).toString(
       "base64"
     );
     request.Raw.data["redirect_uri"] =
       Buffer.from(redirectUri).toString("base64");
     request.Raw.data["logout_uri"] = Buffer.from(
-      response.data.end_session_endpoint
+      openIdData.end_session_endpoint
     ).toString("base64");
 
     request.RemoveLabel("todo");
@@ -110,16 +97,18 @@ When(a.Secret)
       "authservice",
       "config.json"
     );
+    // this will parse what is in there and make sure it's valid
     const oldConfig = new Config(JSON.parse(configRaw));
 
+    // create the new config.json secret
     const chainInput: CreateChainInput = {
       name: clientName,
-      authorization_uri: response.data.authorization_endpoint,
-      token_uri: response.data.token_endpoint,
-      jwks_uri: response.data.jwks_uri,
+      authorization_uri: openIdData.authorization_endpoint,
+      token_uri: openIdData.token_endpoint,
+      jwks_uri: openIdData.jwks_uri,
       redirect_uri: redirectUri,
       clientSecret: clientSecret,
-      logout_uri: response.data.end_session_endpoint,
+      logout_uri: openIdData.end_session_endpoint,
     };
 
     const newConfig = new Config({
@@ -130,8 +119,9 @@ When(a.Secret)
       threads: oldConfig.threads,
     });
 
+    // XXX: BDW: TODO: save the old secret data to either another place in the secret or a new secret
     await k8sApi.createOrUpdateSecret(
-      "authservice2",
+      "authservice",
       "authservice",
       "config.json",
       JSON.stringify(newConfig)

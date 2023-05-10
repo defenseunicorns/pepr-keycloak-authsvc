@@ -6,11 +6,13 @@ import {
 
 export class K8sAPI {
   k8sApi: CoreV1Api;
+  customObjectsApi: CustomObjectsApi;
 
   constructor() {
     const kc = new KubeConfig();
     kc.loadFromDefault();
     this.k8sApi = kc.makeApiClient(CoreV1Api);
+    this.customObjectsApi = kc.makeApiClient(CustomObjectsApi);
   }
 
   async getSecretValue(
@@ -32,29 +34,20 @@ export class K8sAPI {
     throw new Error(`Could not find key '${key}' in the secret ${secretName}`);
   }
 
-  // XXX: TODO:
-  async createResources() {
-    const kc = new KubeConfig();
-    kc.loadFromDefault();
-
-    // Create a customObjectsApi client to interact with the Istio resources
-    const customObjectsApi = kc.makeApiClient(CustomObjectsApi);
-
-    // Namespace where the resources will be created
-    const namespace = "your-namespace";
-
+  // XXX: TODO
+  async createResources(namespace: string, name: string) {
     // Define the RequestAuthentication resource
     const requestAuthentication = {
       apiVersion: "security.istio.io/v1",
       kind: "RequestAuthentication",
       metadata: {
-        name: "your-request-authentication",
+        name: name,
         namespace: namespace,
       },
       spec: {
         selector: {
           matchLabels: {
-            app: "your-app-label",
+            protect: "keycloak", // XXX: BDW: TODO
           },
         },
         jwtRules: [
@@ -71,30 +64,23 @@ export class K8sAPI {
       apiVersion: "security.istio.io/v1b",
       kind: "AuthorizationPolicy",
       metadata: {
-        name: "your-authorization-policy",
+        name: name,
         namespace: namespace,
       },
       spec: {
         selector: {
           matchLabels: {
-            app: "your-app-label",
+            protect: "keycloak", // XXX: BDW: TODO
           },
         },
-        action: "ALLOW",
         rules: [
           {
             from: [
               {
                 source: {
-                  requestPrincipals: ["*"],
-                },
-              },
-            ],
-            to: [
-              {
-                operation: {
-                  methods: ["GET", "POST", "PUT", "DELETE"],
-                  paths: ["/your/api/path/*"],
+                  requestPrincipals: [
+                    "https://keycloak.bigbang.dev/auth/realms/cocowow/*",
+                  ],
                 },
               },
             ],
@@ -103,21 +89,20 @@ export class K8sAPI {
       },
     };
 
-    kc.makeApiClient(CoreV1Api);
-
     // Create the RequestAuthentication resource
-    const reqAuthResult = await customObjectsApi.createNamespacedCustomObject(
-      "security.istio.io",
-      "v1",
-      requestAuthentication.kind.toLowerCase() + "s",
-      namespace,
-      requestAuthentication
-    );
+    const reqAuthResult =
+      await this.customObjectsApi.createNamespacedCustomObject(
+        "security.istio.io",
+        "v1",
+        requestAuthentication.kind.toLowerCase() + "s",
+        namespace,
+        requestAuthentication
+      );
     console.log("RequestAuthentication created:", reqAuthResult.body);
 
     // Create the AuthorizationPolicy resource
     const authPolicyResult =
-      await customObjectsApi.createNamespacedCustomObject(
+      await this.customObjectsApi.createNamespacedCustomObject(
         "security.istio.io",
         "v1beta1",
         authorizationPolicy.kind.toLowerCase() + "s",

@@ -1,5 +1,7 @@
+import KeycloakAdminClient from "@keycloak/keycloak-admin-client";
 import { K8sAPI } from "./kubernetes-api";
 import { generatePassword } from "./util";
+import { fetch } from "pepr";
 
 async function createKcAdminClient(config: any) {
   const KcAdminClient = (await import("@keycloak/keycloak-admin-client"))
@@ -7,10 +9,17 @@ async function createKcAdminClient(config: any) {
   return new KcAdminClient(config);
 }
 
+export interface OpenIdData {
+  authorization_endpoint: string;
+  token_endpoint: string;
+  jwks_uri: string;
+  end_session_endpoint: string;
+}
+
 export class KcAPI {
   keycloakBaseUrl: string;
   init: boolean;
-  client: any;
+  client: KeycloakAdminClient;
   password: string;
   k8sApi: K8sAPI;
 
@@ -35,7 +44,7 @@ export class KcAPI {
     );
 
     // XXX: BDW: todo: test with multiple types of keycloak deployments.
-    this.client = createKcAdminClient({ baseUrl: this.keycloakBaseUrl });
+    this.client = await createKcAdminClient({ baseUrl: this.keycloakBaseUrl });
     await this.client.auth({
       username: "user",
       password: this.password,
@@ -154,5 +163,17 @@ export class KcAPI {
       );
     }
     return tempPassword;
+  }
+
+  async GetOpenIdData(realmName: string): Promise<OpenIdData> {
+    const response = await fetch<OpenIdData>(
+      `${this.keycloakBaseUrl}/realms/${realmName}/.well-known/openid-configuration`
+    );
+    if (!response.ok) {
+      throw new Error(
+        `failed to get openid-configuration for realm ${realmName}`
+      );
+    }
+    return response.data;
   }
 }
