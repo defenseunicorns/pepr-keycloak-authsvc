@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2023-Present The Pepr Authors
+
 import KcAdminClient from "@keycloak/keycloak-admin-client";
 import { K8sAPI } from "./kubernetes-api";
 import { generatePassword } from "./util";

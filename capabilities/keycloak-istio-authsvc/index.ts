@@ -1,10 +1,13 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2023-Present The Pepr Authors
+
 import { Capability, a, fetch } from "pepr";
 import { Config, CreateChainInput } from "./lib/authservice/secretConfig";
 import { KcAPI } from "./lib/kc-api";
 import { K8sAPI } from "./lib/kubernetes-api";
 
-export const Keycloak = new Capability({
-  name: "keycloak",
+export const KeycloakIstioAuthSvc = new Capability({
+  name: "keycloak-istio-authsvc",
   description: "Simple example to configure keycloak realm and clientid",
   namespaces: [],
 });
@@ -12,7 +15,7 @@ export const Keycloak = new Capability({
 const keycloakBaseUrl = "https://keycloak.bigbang.dev/auth";
 const domain = "bigbang.dev";
 
-const { When } = Keycloak;
+const { When } = KeycloakIstioAuthSvc;
 
 // Validate the authservice secret.
 When(a.Secret)

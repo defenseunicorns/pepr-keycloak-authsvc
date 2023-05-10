@@ -1,5 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2023-Present The Pepr Authors
+
 import { Log, PeprModule } from "pepr";
-import { Keycloak } from "./capabilities/keycloak";
+import { KeycloakIstioAuthSvc } from "./capabilities/keycloak-istio-authsvc";
 // cfg loads your pepr configuration from package.json
 import cfg from "./package.json";
 
@@ -10,7 +13,7 @@ import cfg from "./package.json";
 new PeprModule(
   cfg,
   [
-    Keycloak,
+    KeycloakIstioAuthSvc,
     // Your additional capabilities go here
   ],
   {
