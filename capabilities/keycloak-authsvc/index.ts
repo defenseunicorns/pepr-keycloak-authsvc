@@ -127,6 +127,13 @@ When(a.Secret)
       JSON.stringify(newConfig)
     );
 
+    await k8sApi.CreateRequestAuthentication(
+      request.Raw.metadata.namespace,
+      clientName,
+      openIdData.issuer,
+      openIdData.jwks_uri
+    );
+
     request.SetLabel("todo", "setupauthservice");
   });
 

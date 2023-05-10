@@ -14,6 +14,7 @@ export interface OpenIdData {
   token_endpoint: string;
   jwks_uri: string;
   end_session_endpoint: string;
+  issuer: string;
 }
 
 export class KcAPI {

@@ -34,8 +34,13 @@ export class K8sAPI {
     throw new Error(`Could not find key '${key}' in the secret ${secretName}`);
   }
 
-  // XXX: TODO
-  async createResources(namespace: string, name: string) {
+  // authn can be in the namespace with the app
+  async CreateRequestAuthentication(
+    namespace: string,
+    name: string,
+    issuer: string,
+    jwksUri: string
+  ) {
     // Define the RequestAuthentication resource
     const requestAuthentication = {
       apiVersion: "security.istio.io/v1",
@@ -47,18 +52,29 @@ export class K8sAPI {
       spec: {
         selector: {
           matchLabels: {
-            protect: "keycloak", // XXX: BDW: TODO
+            protect: "keycloak", // XXX: BDW: TODO, this doesn't have to be this
           },
         },
         jwtRules: [
           {
-            issuer: "your-issuer",
-            jwksUri: "https://your-jwks-uri.example.com/.well-known/jwks.json",
+            issuer: issuer,
+            jwksUri: jwksUri,
           },
         ],
       },
     };
 
+    // Create the RequestAuthentication resource
+    await this.customObjectsApi.createNamespacedCustomObject(
+      "security.istio.io",
+      "v1",
+      namespace,
+      requestAuthentication.kind.toLowerCase() + "s",
+      requestAuthentication
+    );
+  }
+
+  async createResources(namespace: string, name: string) {
     // Define the AuthorizationPolicy resource
     const authorizationPolicy = {
       apiVersion: "security.istio.io/v1b",
@@ -89,24 +105,13 @@ export class K8sAPI {
       },
     };
 
-    // Create the RequestAuthentication resource
-    const reqAuthResult =
-      await this.customObjectsApi.createNamespacedCustomObject(
-        "security.istio.io",
-        "v1",
-        requestAuthentication.kind.toLowerCase() + "s",
-        namespace,
-        requestAuthentication
-      );
-    console.log("RequestAuthentication created:", reqAuthResult.body);
-
     // Create the AuthorizationPolicy resource
     const authPolicyResult =
       await this.customObjectsApi.createNamespacedCustomObject(
         "security.istio.io",
         "v1beta1",
-        authorizationPolicy.kind.toLowerCase() + "s",
         namespace,
+        authorizationPolicy.kind.toLowerCase() + "s",
         authorizationPolicy
       );
   }
