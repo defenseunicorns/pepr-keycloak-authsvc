@@ -154,12 +154,13 @@ When(a.Secret)
 
     await k8sApi.patchNamespaceForIstio(request.Raw.metadata.namespace);
 
-    // XXX: BDW: we also need to know if we're securing a statefulset too, in which case, we might need to manually restart the
-    // pods for it...
+    // XXX: BDW: we need Stateful set patch too
     await k8sApi.patchDeploymentForKeycloak(
       request.Raw.metadata.namespace,
       clientName
     );
+
+    await k8sApi.restartDeployment("authservice", "authservice");
 
     request.SetLabel("todo", "setupauthservice");
   });
