@@ -3,6 +3,10 @@ import { Config, CreateChainInput } from "./lib/authservice/secretConfig";
 import { KcAPI, OpenIdData } from "./lib/kc-api";
 import { K8sAPI } from "./lib/kubernetes-api";
 
+import {
+  V1HostAlias,
+} from "@kubernetes/client-node";
+
 export const KeycloakAuthSvc = new Capability({
   name: "keycloak-authsvc",
   description: "Simple example to configure keycloak realm and clientid",
@@ -10,8 +14,6 @@ export const KeycloakAuthSvc = new Capability({
 });
 
 const keycloakBaseUrl = "https://keycloak.bigbang.dev/auth";
-const domain = "bigbang.dev";
-
 const { When } = KeycloakAuthSvc;
 
 // Validate the authservice secret.
@@ -30,45 +32,126 @@ When(a.Secret)
     request.SetLabel("done", "validated-syntax");
   });
 
+
+// this is a hack to help the authservice pods be able to find keycloak (only needed if keycloak is not using passthrough)
+When(a.Pod)
+.IsCreated()
+.InNamespace("authservice")
+.Then(async request => {
+  const k8sApi = new K8sAPI();
+  const myIP = await k8sApi.getExternalIp("istio-system", "istio-gateway" )
+  
+  const hostAlias: V1HostAlias = {
+      ip: myIP,
+      hostnames: ['keycloak.bigbang.dev'],
+  };
+  if (request.Raw.spec.hostAliases === undefined) {
+    request.Raw.spec.hostAliases = []
+  } 
+  request.Raw.spec.hostAliases.push(hostAlias)
+});
+
+// kubectl create secret generic setup -n keycloak --from-literal=domain=bigbang.dev
+// kubectl label secret setup -n keycloak todo=setupkeycloak
+// SetupKeyCloak networking (istio)
+When(a.Secret)
+.IsCreatedOrUpdated()
+.WithName("setup")
+.WithLabel("todo", "setupkeycloak")
+.Then(async request => {
+  // only allow creating these objects in the keycloak namespace
+  const namespaceName = request.Raw.metadata.namespace;
+  if (namespaceName !== "keycloak") {
+    return;
+  }
+  const domain = getVal(request.Raw.data, "domain");
+
+  const k8sApi = new K8sAPI();
+  await k8sApi.patchNamespaceForIstio("keycloak")
+  await k8sApi.restartStatefulset("keycloak", "keycloak")
+
+  await k8sApi.patchNamespaceForIstio("authservice")
+  await k8sApi.restartDeployment("authservice", "authservice")
+
+  // XXX: BDW: restart the keycloak statefulset
+  await k8sApi.createOrUpdateIstioGateway("bigbang", "istio-system", domain);
+  await k8sApi.CreateOrUpdateVirtualService(
+    namespaceName,
+    "keycloak",
+    "istio-system/bigbang",
+    domain,
+    "keycloak",
+    80
+  );
+  // XXX: BDW: test that we can reach keycloak
+  request.RemoveLabel("todo");
+  request.SetLabel("done", "setupkeycloak");
+
+  // TODO: patch istio configmap to enable authservice (istio operator can do it)
+});
+
+// TODO: we can derive the realm name and domain from the authn/authz secrets
+// kubectl create secret generic configrealm -n keycloak --from-literal=realm=demo --from-literal=domain=bigbang.dev
+// kubectl label secret configrealm -n keycloak  todo=createrealm
 // CreateRealm
 When(a.Secret)
   .IsCreatedOrUpdated()
+  .WithName("configrealm")
   .WithLabel("todo", "createrealm")
   .Then(async request => {
+    // only allow creating these objects in the keycloak namespace
     const namespaceName = request.Raw.metadata.namespace;
     if (namespaceName !== "keycloak") {
       return;
     }
-    const realmName = request.Raw.metadata.name;
+
+    const realm = getVal(request.Raw.data, "realm");
+    const domain = getVal(request.Raw.data, "domain");
+
+    // XXX: BDW: make keycloak accessible 
+    const k8sApi = new K8sAPI();
     const kcAPI = new KcAPI(keycloakBaseUrl);
-    await kcAPI.GetOrCreateRealm(realmName);
+    await kcAPI.GetOrCreateRealm(realm);
+
+    // XXX: BDW TODO: if authservice precreates this, that's ok.
+    //await k8sApi.createOrUpdateAuthorizationPolicy(namespaceName, domain, [`https://keycloak.${domain}/auth/realms/${realm}/*`])
+
     request.RemoveLabel("todo");
     request.SetLabel("done", "created");
   });
 
+
+
+// kubectl create secret generic configclient -n podinfo --from-literal=realm=demo --from-literal=clientId=podinfo --from-literal=clientName=podinfo --from-literal=domain=bigbang.dev
+// kubectl label secret configclient -n podinfo  todo=createclient
+
 // CreateClient
 When(a.Secret)
   .IsCreatedOrUpdated()
-  .WithName("config")
+  .WithName("configclient")
   .WithLabel("todo", "createclient")
   .Then(async request => {
-    // read the content from the secret
-    const realmName = getVal(request.Raw.data, "realmName");
+    // XXX: BDW: TODO: check keycloak to see if the realm exists already, it's an error if it doesn't exist.
+  
+    const realm = getVal(request.Raw.data, "realm");
+
     const clientId = getVal(request.Raw.data, "clientId");
+    // XXX: BDW: client name isn't completely necessary and we can punt on it.
     const clientName = getVal(request.Raw.data, "clientName");
+    const domain = getVal(request.Raw.data, "domain");
 
     // have keycloak generate the new client and return the secret
     const kcAPI = new KcAPI(keycloakBaseUrl);
     const redirectUri = `https://${clientId}.${domain}/login`;
     const clientSecret = await kcAPI.GetOrCreateClient(
-      realmName,
+      realm,
       clientName,
       clientId,
       redirectUri
     );
 
     // get the openid data from keycloak
-    const openIdData = await kcAPI.GetOpenIdData(realmName);
+    const openIdData = await kcAPI.GetOpenIdData(realm);
 
     request.Raw.data["clientSecret"] =
       Buffer.from(clientSecret).toString("base64");
@@ -87,107 +170,17 @@ When(a.Secret)
       openIdData.end_session_endpoint
     ).toString("base64");
 
-    request.RemoveLabel("todo");
-    request.SetLabel("done", "clientcreated");
 
     // get the existing config.json secret
-    const k8sApi = new K8sAPI();
-    const configRaw = await k8sApi.getSecretValue(
-      "authservice",
-      "authservice",
-      "config.json"
-    );
-    // this will parse what is in there and make sure it's valid
-    const oldConfig = new Config(JSON.parse(configRaw));
+    await doAuthServiceSecretStuff(clientName, openIdData, redirectUri, clientSecret, request.Raw.metadata.namespace, domain);
 
-    // create the new config.json secret
-    const chainInput: CreateChainInput = {
-      name: clientName,
-      fqdn: `${clientName}.${domain}`,
-      authorization_uri: openIdData.authorization_endpoint,
-      token_uri: openIdData.token_endpoint,
-      jwks_uri: openIdData.jwks_uri,
-      redirect_uri: redirectUri,
-      clientSecret: clientSecret,
-      logout_uri: openIdData.end_session_endpoint,
-    };
-
-    // XXX: make sure we're not just appending.
-    oldConfig.chains.push(Config.CreateSingleChain(chainInput));
-    // XXX: BDW add a second chain
-    const newConfig = new Config({
-      chains: oldConfig.chains,
-      listen_address: oldConfig.listen_address,
-      listen_port: oldConfig.listen_port,
-      log_level: oldConfig.log_level,
-      threads: oldConfig.threads,
-    });
-
-    // XXX: BDW: TODO: save the old secret data to either another place in the secret or a new secret
-    await k8sApi.createOrUpdateSecret(
-      "authservice",
-      "authservice",
-      "config.json",
-      JSON.stringify(newConfig)
-    );
-
-    // XXX: BDW: we only need one Authn per realm.
-    await k8sApi.CreateRequestAuthentication(
-      request.Raw.metadata.namespace,
-      clientName,
-      openIdData.issuer,
-      openIdData.jwks_uri
-    );
-
-    // XXX: BDW: we need to know which gateway to use (including the namespace it's in), and we need to patch it to add ${clientName}.${domain} to the hosts
-    // XXX: BDW: we also need to know which service to expose? that might need to go into the `config` secret...
-
-    // XXX: BDW the gateway should not require updating because it should be like "*.bigbang.dev"
-    await k8sApi.CreateOrUpdateVirtualService(
-      request.Raw.metadata.namespace,
-      clientName,
-      "default/bigbang",
-      domain,
-      clientName,
-      9898
-    );
-
-    await k8sApi.patchNamespaceForIstio(request.Raw.metadata.namespace);
-
-    // XXX: BDW: we need Stateful set patch too
-    await k8sApi.patchDeploymentForKeycloak(
-      request.Raw.metadata.namespace,
-      clientName
-    );
-
-    await k8sApi.restartDeployment("authservice", "authservice");
-
-    request.SetLabel("todo", "setupauthservice");
+    request.RemoveLabel("todo");
+    request.SetLabel("done", "createclient");
   });
 
-/*
 
-// SetupAuthService (will write to the authservice namespace, so it can be managed properly)
-When(a.Secret)
-  .IsCreatedOrUpdated()
-  .WithName("config")
-  .WithLabel("todo", "setupauthservice")
-  .Then(async request => {    
 
-  // XXX: BDW: TODO:
-  // create the authservice config.json secret, but it should be fully recreated everytime, not just patched.
-  // can we get rid of the default_oidc_config? and just have chains? Can we make the deployment of not create or own this file, we might need
-  //    different versions of this logic.
-  // 
-  // we should assume that authservice base is setup?
-  // setup:
-  //    1. AuthorizationPolicy (authz)
-  //    2. RequestAuthentication (authn)
-  //    3. peerauthentications (mtls config) (only need 1)
-  //    4. deployment/sts needs to be tagged to be secured, the protect:keycloak label isn't clear enough, we'll add a better one.
-  })
-*/
-
+// XXX: BDW: untested.
 // keycloak: create a user (example only)
 When(a.Secret)
   .IsCreated()
@@ -198,7 +191,8 @@ When(a.Secret)
       firstName: getVal(request.Raw.data, "firstname"),
       lastName: getVal(request.Raw.data, "lastname"),
       email: getVal(request.Raw.data, "email"),
-      realm: getVal(request.Raw.data, "realmName"),
+      realm: getVal(request.Raw.data, "realm"),
+      domain: getVal(request.Raw.data, "domain"),
       enabled: true,
     };
     const kcAPI = new KcAPI(keycloakBaseUrl);
@@ -207,6 +201,79 @@ When(a.Secret)
     request.RemoveLabel("todo");
     request.SetLabel("done", "created");
   });
+
+
+
+async function doAuthServiceSecretStuff(clientName: string, openIdData: OpenIdData, redirectUri: string, clientSecret: string, namespace: string, domain: string) {
+  const k8sApi = new K8sAPI();
+  const configRaw = await k8sApi.getSecretValue(
+    "authservice",
+    "authservice",
+    "config.json"
+  );
+  // this will parse what is in there and make sure it's valid
+  const oldConfig = new Config(JSON.parse(configRaw));
+
+  // create the new config.json secret
+  const chainInput: CreateChainInput = {
+    name: clientName,
+    fqdn: `${clientName}.${domain}`,
+    authorization_uri: openIdData.authorization_endpoint,
+    token_uri: openIdData.token_endpoint,
+    jwks_uri: openIdData.jwks_uri,
+    redirect_uri: redirectUri,
+    clientSecret: clientSecret,
+    logout_uri: openIdData.end_session_endpoint,
+  };
+
+  // remove it if it exists, and replace it (also remove local)
+  oldConfig.chains = oldConfig.chains.filter(obj => obj.name !== clientName && obj.name !== "local");
+  oldConfig.chains.push(Config.CreateSingleChain(chainInput));
+
+  // XXX: make sure we're not just appending.
+  // XXX: BDW add a second chain
+  const newConfig = new Config({
+    chains: oldConfig.chains,
+    listen_address: oldConfig.listen_address,
+    listen_port: oldConfig.listen_port,
+    log_level: oldConfig.log_level,
+    threads: oldConfig.threads,
+  });
+
+  // XXX: BDW: TODO: save the old secret data to either another place in the secret or a new secret
+  await k8sApi.createOrUpdateSecret(
+    "authservice",
+    "authservice",
+    "config.json",
+    JSON.stringify(newConfig)
+  );
+
+  /*
+  await k8sApi.CreateRequestAuthentication(
+    namespace,
+    clientName,
+    openIdData.issuer,
+    openIdData.jwks_uri
+  );
+  */
+  // XXX: BDW hardcoded gateway, but in theory we can create a gateway for each app
+  await k8sApi.CreateOrUpdateVirtualService(
+    namespace,
+    clientName,
+    "istio-system/bigbang",
+    domain,
+    clientName,
+    9898
+  );
+
+  await k8sApi.patchNamespaceForIstio(namespace);
+
+  await k8sApi.patchDeploymentForKeycloak(
+    namespace,
+    clientName
+  );
+  await k8sApi.restartDeployment("authservice", "authservice");
+}
 
 function getVal(data: { [key: string]: string }, p: string): string {
   if (data && data[p]) {

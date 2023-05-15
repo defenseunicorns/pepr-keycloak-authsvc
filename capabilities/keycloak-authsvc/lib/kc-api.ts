@@ -59,22 +59,25 @@ export class KcAPI {
     await this.connect();
 
     try {
-      await this.client.realms.findOne({
+      const isFound = await this.client.realms.findOne({
         realm: realmName,
       });
-      return true;
+      if (isFound) {
+        return true;
+      }
     } catch (error) {
       if (error.response && error.response.status === 404) {
         // realm not found, will create it
       } else {
-        throw new Error(error);
+        throw error
       }
     }
 
-    // XXX: BDW do we need the realmid? test to see if it's optional
+    // use the same realmName and realmId
     const realm = await this.client.realms.create({
-      id: realmName + "1",
+      id: realmName,
       realm: realmName,
+      enabled: true
     });
 
     if (realm.realmName != realmName) {
@@ -111,7 +114,7 @@ export class KcAPI {
       name: clientName,
       realm: realmName,
       redirectUris: [redirectUri],
-      // Add other client settings here, such as "protocol", "publicClient", "redirectUris", etc.
+      // Add other client settings here, such as "protocol", "publicClient", etc.
     };
 
     await this.client.clients.create(newClient);

@@ -24,6 +24,7 @@ class RedisConfig {
   server_uri: string;
 
   constructor(json?: any) {
+    /*
     if (!json.server_uri || json.server_uri.length < 1) {
       throw new TypeError(
         "server_uri is required and must be at least 1 character long"
@@ -31,6 +32,7 @@ class RedisConfig {
     }
     // Validate the URI
     new URL(json.server_uri);
+    */
     this.server_uri = json.server_uri;
   }
   toObject(): Record<string, any> {
@@ -45,6 +47,7 @@ export class LogoutConfig {
   redirect_uri: string;
 
   constructor(json: any) {
+    /*
     if (!json.path || json.path.length < 1) {
       throw new TypeError(
         "path is required and must be at least 1 character long"
@@ -57,6 +60,7 @@ export class LogoutConfig {
     }
     // Validate the URI
     new URL(json.redirect_uri);
+    */
     this.path = json.path;
     this.redirect_uri = json.redirect_uri;
   }
@@ -74,11 +78,14 @@ export class JwksFetcherConfig {
   skip_verify_peer_cert?: boolean;
 
   constructor(json: any) {
+    /*
     if (!json.jwks_uri) {
       throw new TypeError("jwks_uri is required");
     }
+
     // Validate the URI
     new URL(json.jwks_uri);
+    */
     this.jwks_uri = json.jwks_uri;
     if ("periodic_fetch_interval_sec" in json) {
       this.periodic_fetch_interval_sec = json.periodic_fetch_interval_sec;
@@ -117,6 +124,8 @@ export class OIDCConfig {
   skip_verify_peer_cert?: boolean;
 
   constructor(json: any) {
+    // XXX: BDW: this needs to be reworked, because it's valid if it's in the parent.
+    /*
     if (!json.authorization_uri || json.authorization_uri.length < 1) {
       throw new TypeError(
         "authorization_uri is required and must be at least 1 character long"
@@ -150,6 +159,8 @@ export class OIDCConfig {
     new URL(json.authorization_uri);
     new URL(json.token_uri);
     new URL(json.callback_uri);
+
+    */
 
     this.authorization_uri = json.authorization_uri;
     this.token_uri = json.token_uri;
