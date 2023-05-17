@@ -27,6 +27,7 @@
   "scripts": {
     "build": "rm -fr dist && tsc",
     "k3d-setup": "k3d cluster delete pepr-dev && k3d cluster create pepr-dev --k3s-arg '--debug@server:0' -p '443:443@loadbalancer' -p '80:80@loadbalancer' --k3s-arg='--disable=traefik@server:0'",
+    "zarf": "zarf package create --confirm && zarf package deploy zarf-package-pepr-keycloak-demo-*.tar.zst --confirm",
     "start": "pepr dev",
     "test": "ava",
     "format:check": "eslint capabilities && prettier capabilities --check",
