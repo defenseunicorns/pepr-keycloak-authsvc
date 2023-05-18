@@ -3,4 +3,3 @@
         envoyExtAuthzGrpc:
           service: "authservice.authservice.svc.cluster.local"
           port: "10003"
-

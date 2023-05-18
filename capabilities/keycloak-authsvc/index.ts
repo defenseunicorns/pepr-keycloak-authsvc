@@ -14,6 +14,7 @@ export const KeycloakAuthSvc = new Capability({
 });
 
 const keycloakBaseUrl = "https://keycloak.bigbang.dev/auth";
+const hardCodedGateway = {"namespace": "istio-system", "name": "bigbang"}
 const { When } = KeycloakAuthSvc;
 
 // Validate the authservice secret.
@@ -33,26 +34,10 @@ When(a.Secret)
   });
 
 
-// this is a hack to help the authservice pods be able to find keycloak (only needed if keycloak is not using passthrough)
-When(a.Pod)
-.IsCreated()
-.InNamespace("authservice")
-.Then(async request => {
-  const k8sApi = new K8sAPI();
-  const myIP = await k8sApi.getExternalIp("istio-system", "istio-gateway" )
-  
-  const hostAlias: V1HostAlias = {
-      ip: myIP,
-      hostnames: ['keycloak.bigbang.dev'],
-  };
-  if (request.Raw.spec.hostAliases === undefined) {
-    request.Raw.spec.hostAliases = []
-  } 
-  request.Raw.spec.hostAliases.push(hostAlias)
-});
-
-// kubectl create secret generic setup -n keycloak --from-literal=domain=bigbang.dev
-// kubectl label secret setup -n keycloak todo=setupkeycloak
+/*
+  kubectl create secret generic setup -n keycloak --from-literal=domain=bigbang.dev
+  kubectl label secret setup -n keycloak todo=setupkeycloak
+*/
 // SetupKeyCloak networking (istio)
 When(a.Secret)
 .IsCreatedOrUpdated()
@@ -74,16 +59,15 @@ When(a.Secret)
   await k8sApi.restartDeployment("authservice", "authservice")
 
   // XXX: BDW: restart the keycloak statefulset
-  await k8sApi.createOrUpdateIstioGateway("bigbang", "istio-system", domain);
+  await k8sApi.createOrUpdateIstioGateway(hardCodedGateway.name, hardCodedGateway.namespace, domain);
   await k8sApi.CreateOrUpdateVirtualService(
     namespaceName,
     "keycloak",
-    "istio-system/bigbang",
+    `${hardCodedGateway.namespace}/${hardCodedGateway.name}`,
     domain,
     "keycloak",
     80
   );
-  // XXX: BDW: test that we can reach keycloak
   request.RemoveLabel("todo");
   request.SetLabel("done", "setupkeycloak");
 
@@ -91,8 +75,10 @@ When(a.Secret)
 });
 
 // TODO: we can derive the realm name and domain from the authn/authz secrets
-// kubectl create secret generic configrealm -n keycloak --from-literal=realm=demo --from-literal=domain=bigbang.dev
-// kubectl label secret configrealm -n keycloak  todo=createrealm
+/* Demo steps
+kubectl create secret generic configrealm -n keycloak --from-literal=realm=demo --from-literal=domain=bigbang.dev
+kubectl label secret configrealm -n keycloak  todo=createrealm
+*/
 // CreateRealm
 When(a.Secret)
   .IsCreatedOrUpdated()
@@ -108,12 +94,12 @@ When(a.Secret)
     const realm = getVal(request.Raw.data, "realm");
     const domain = getVal(request.Raw.data, "domain");
 
-    // XXX: BDW: make keycloak accessible 
+    // TODO: we need an async way to make keycloak accessible.
     const k8sApi = new K8sAPI();
     const kcAPI = new KcAPI(keycloakBaseUrl);
     await kcAPI.GetOrCreateRealm(realm);
 
-    // XXX: BDW TODO: if authservice precreates this, that's ok.
+    // TODO: Validate the state of the UpdateAuthorizationPolicy, since there will be only one per realm, we can do it here.
     //await k8sApi.createOrUpdateAuthorizationPolicy(namespaceName, domain, [`https://keycloak.${domain}/auth/realms/${realm}/*`])
 
     request.RemoveLabel("todo");
@@ -122,9 +108,10 @@ When(a.Secret)
 
 
 
-// kubectl create secret generic configclient -n podinfo --from-literal=realm=demo --from-literal=clientId=podinfo --from-literal=clientName=podinfo --from-literal=domain=bigbang.dev
-// kubectl label secret configclient -n podinfo  todo=createclient
-
+/* demo to create the client secret
+kubectl create secret generic configclient -n podinfo --from-literal=realm=demo --from-literal=clientId=podinfo --from-literal=clientName=podinfo --from-literal=domain=bigbang.dev
+kubectl label secret configclient -n podinfo  todo=createclient
+*/
 // CreateClient
 When(a.Secret)
   .IsCreatedOrUpdated()
@@ -248,6 +235,7 @@ async function doAuthServiceSecretStuff(clientName: string, openIdData: OpenIdDa
     JSON.stringify(newConfig)
   );
 
+  // TODO: validate if this is necessary
   /*
   await k8sApi.CreateRequestAuthentication(
     namespace,
@@ -256,11 +244,13 @@ async function doAuthServiceSecretStuff(clientName: string, openIdData: OpenIdDa
     openIdData.jwks_uri
   );
   */
+
+
   // XXX: BDW hardcoded gateway, but in theory we can create a gateway for each app
   await k8sApi.CreateOrUpdateVirtualService(
     namespace,
     clientName,
-    "istio-system/bigbang",
+    `${hardCodedGateway.namespace}/${hardCodedGateway.name}`,
     domain,
     clientName,
     9898

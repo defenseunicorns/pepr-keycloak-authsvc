@@ -116,7 +116,7 @@ export class K8sAPI {
     );
   }
 
-  // XXX: BDW: test me
+  // merge to one methods
   async restartDeployment(namespace: string, deployment: string) {
     const patch = [
       {
@@ -139,7 +139,6 @@ export class K8sAPI {
     );
   }
 
-    // XXX: BDW: test me
     async restartStatefulset(namespace: string, statefulSet: string) {
       const patch = [
         {
@@ -162,25 +161,6 @@ export class K8sAPI {
       );
     }
 
-  /*
-  async restartDeployment(namespace: string, deployment: string) {
-    const res = await this.k8sAppsV1Api.readNamespacedDeployment(
-      deployment,
-      namespace
-    );
-    if (!res.body.metadata.annotations) {
-      res.body.metadata.annotations = {};
-    }
-    res.body.spec.template.metadata.annotations[
-      "kubectl.kubernetes.io/restartedAt"
-    ] = new Date().toISOString();
-    await this.k8sAppsV1Api.replaceNamespacedDeployment(
-      deployment,
-      namespace,
-      res.body
-    );
-  }
-  */
 
   async patchDeploymentForKeycloak(namespace: string, deployment: string) {
     const patch = [

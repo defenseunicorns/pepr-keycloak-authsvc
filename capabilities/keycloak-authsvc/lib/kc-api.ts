@@ -34,6 +34,36 @@ export class KcAPI {
       return;
     }
 
+    /* for bigbang
+
+        const namespace = "keycloak";
+    // XXX: BDW: this is from the bigbang chart
+    const name = "keycloak-env";
+
+    this.k8sApi = new K8sAPI();
+    this.password = await this.k8sApi.getSecretValue(
+      namespace,
+      name,
+      "KEYCLOAK_ADMIN_PASSWORD"
+    );
+
+    this.username = await this.k8sApi.getSecretValue(
+      namespace,
+      name,
+      "KEYCLOAK_ADMIN"
+    );
+
+    // XXX: BDW: todo: test with multiple types of keycloak deployments.
+    this.client = await createKcAdminClient({ baseUrl: this.keycloakBaseUrl });
+    await this.client.auth({
+      username: this.username,
+      password: this.password,
+      grantType: "password",
+      clientId: "admin-cli",
+    });
+    this.init = true;
+    */
+   
     const namespace = "keycloak";
     const name = "keycloak";
 
