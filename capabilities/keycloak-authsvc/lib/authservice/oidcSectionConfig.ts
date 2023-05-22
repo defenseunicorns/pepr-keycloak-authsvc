@@ -234,7 +234,7 @@ export class OIDCConfig {
       cookie_name_prefix: this.cookie_name_prefix,
       id_token: this.id_token.toObject(),
       access_token: this.access_token.toObject(),
-      logout: this.logout.toObject(),
+      logout: this.logout?.toObject(),
       jwks: this.jwks,
       jwks_fetcher: this.jwks_fetcher?.toObject(),
       absolute_session_timeout: this.absolute_session_timeout,

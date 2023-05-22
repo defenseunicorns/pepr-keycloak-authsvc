@@ -3,7 +3,9 @@ import {
   CoreV1Api,
   CustomObjectsApi,
   KubeConfig,
+  V1Secret,
 } from "@kubernetes/client-node";
+import { Log, fetchStatus } from "pepr";
 
 export class K8sAPI {
   k8sApi: CoreV1Api;
@@ -13,28 +15,24 @@ export class K8sAPI {
   constructor() {
     const kc = new KubeConfig();
     kc.loadFromDefault();
+
     this.k8sApi = kc.makeApiClient(CoreV1Api);
     this.customObjectsApi = kc.makeApiClient(CustomObjectsApi);
     this.k8sAppsV1Api = kc.makeApiClient(AppsV1Api);
   }
 
-  async getSecretValue(
-    namespace: string,
-    secretName: string,
-    key: string
-  ): Promise<string> {
-    const response = await this.k8sApi.readNamespacedSecret(
-      secretName,
-      namespace
-    );
-    const secret = response.body.data;
+  async getSecretValue(namespace: string, name: string, key: string) {
+    const { body } = await this.k8sApi.readNamespacedSecret(name, namespace);
+    const val = body.data?.[key];
 
-    if (secret && secret[key]) {
+    if (val) {
       // Decode the base64 encoded secret value
-      const decodedValue = Buffer.from(secret[key], "base64").toString("utf-8");
+      const decodedValue = Buffer.from(val, "base64").toString("utf-8");
+
       return decodedValue;
     }
-    throw new Error(`Could not find key '${key}' in the secret ${secretName}`);
+
+    throw new Error(`Could not find key '${key}' in the secret ${name}`);
   }
 
   // only need one per realm (not per client)
@@ -60,8 +58,8 @@ export class K8sAPI {
         },
         jwtRules: [
           {
-            issuer: issuer,
-            jwksUri: jwksUri,
+            issuer,
+            jwksUri,
           },
         ],
       },
@@ -76,6 +74,7 @@ export class K8sAPI {
         requestAuthentication.kind.toLowerCase() + "s",
         name
       );
+
       return;
     } catch (error) {
       if (error.response && error.response.statusCode === 404) {
@@ -299,10 +298,10 @@ export class K8sAPI {
         "gateways",
         istioGateway
       );
-      console.log(`Gateway ${name} created in namespace ${namespace}`);
+      Log.info(`Gateway ${name} created in namespace ${namespace}`);
       return result;
     } catch (error) {
-      console.error(
+      Log.error(
         `Failed to create Gateway ${name} in namespace ${namespace}: ${error}`
       );
       throw error;
@@ -352,7 +351,8 @@ export class K8sAPI {
         name,
         authorizationPolicy
       );
-      console.log(
+
+      Log.info(
         `AuthorizationPolicy ${name} replaced in namespace ${namespace}`
       );
     } catch (error) {
@@ -365,14 +365,16 @@ export class K8sAPI {
           "authorizationpolicies",
           authorizationPolicy
         );
-        console.log(
+
+        Log.info(
           `AuthorizationPolicy ${name} created in namespace ${namespace}`
         );
       } else {
         // If any other error, throw it
-        console.error(
+        Log.error(
           `Failed to create or replace AuthorizationPolicy ${name} in namespace ${namespace}: ${error}`
         );
+
         throw error;
       }
     }
@@ -388,8 +390,8 @@ export class K8sAPI {
       apiVersion: "networking.istio.io/v1alpha3",
       kind: "Gateway",
       metadata: {
-        name: name,
-        namespace: namespace,
+        name,
+        namespace,
       },
       spec: {
         selector: {
@@ -443,12 +445,13 @@ export class K8sAPI {
         );
         */
 
-      console.log(`Gateway ${name} replaced in namespace ${namespace}`);
+      Log.info(`Gateway ${name} replaced in namespace ${namespace}`);
+
       return;
     } catch (error) {
-      if (error.statusCode === 404) {
+      if (error.statusCode === fetchStatus.NOT_FOUND) {
         // If it does not exist, create it
-        const result = await this.customObjectsApi.createNamespacedCustomObject(
+        await this.customObjectsApi.createNamespacedCustomObject(
           "networking.istio.io",
           "v1alpha3",
           namespace,
@@ -456,26 +459,33 @@ export class K8sAPI {
           istioGateway
         );
 
-        console.log(`Gateway ${name} created in namespace ${namespace}`);
+        Log.info(`Gateway ${name} created in namespace ${namespace}`);
+
         return;
       }
 
       // If any other error, log and throw it
-      console.error(
+      Log.error(
         `Failed to create or replace Gateway ${name} in namespace ${namespace}: ${error}`
       );
+
       throw error;
     }
   }
 
-  async createOrUpdateSecret(secretName, namespace, location, text) {
+  async createOrUpdateSecret(
+    name: string,
+    namespace: string,
+    location: string,
+    text: string
+  ) {
     // Create the Secret object
-    const secret = {
+    const secret: V1Secret = {
       apiVersion: "v1",
       kind: "Secret",
       metadata: {
-        name: secretName,
-        namespace: namespace,
+        name,
+        namespace,
       },
       data: {
         [location]: Buffer.from(text).toString("base64"),
@@ -484,10 +494,10 @@ export class K8sAPI {
 
     try {
       // Check if the Secret exists
-      await this.k8sApi.readNamespacedSecret(secretName, namespace);
+      await this.k8sApi.readNamespacedSecret(name, namespace);
 
       // If the Secret exists, update it
-      await this.k8sApi.replaceNamespacedSecret(secretName, namespace, secret);
+      await this.k8sApi.replaceNamespacedSecret(name, namespace, secret);
     } catch (e) {
       if (e.response && e.response.statusCode === 404) {
         await this.k8sApi.createNamespacedSecret(namespace, secret);
@@ -497,26 +507,22 @@ export class K8sAPI {
     }
   }
 
-  async getExternalIp(
-    namespace: string,
-    serviceName: string
-  ): Promise<string | null> {
-    const res = await this.k8sApi.readNamespacedService(serviceName, namespace);
-    const service = res.body;
+  async getExternalIp(namespace: string, name: string) {
+    const { body } = await this.k8sApi.readNamespacedService(name, namespace);
 
-    if (
-      service.status &&
-      service.status.loadBalancer &&
-      service.status.loadBalancer.ingress
-    ) {
-      const ingress = service.status.loadBalancer.ingress[0];
+    const ingress = body.status?.loadBalancer?.ingress?.[0];
+
+    if (ingress) {
       if (ingress.ip) {
         return ingress.ip;
-      } else if (ingress.hostname) {
+      }
+
+      if (ingress.hostname) {
         // If there's no IP, the load balancer may be using a hostname
         return ingress.hostname;
       }
     }
+
     return null;
   }
 }

@@ -1,4 +1,4 @@
-import { Capability, a } from "pepr";
+import { Capability, PeprRequest, a } from "pepr";
 
 import { Config, CreateChainInput } from "./lib/authservice/secretConfig";
 import { KcAPI, OpenIdData } from "./lib/kc-api";
@@ -19,11 +19,11 @@ When(a.Secret)
   .IsCreatedOrUpdated()
   .WithName("authservice")
   .Then(async request => {
-    const namespaceName = request.Raw.metadata.namespace;
+    const namespaceName = request.Raw.metadata?.namespace;
     if (namespaceName !== "authservice") {
       return;
     }
-    const config = getVal(request.Raw.data, "config.json");
+    const config = getVal(request, "config.json");
 
     const j = JSON.parse(config);
     new Config(j);
@@ -41,11 +41,11 @@ When(a.Secret)
   .WithLabel("todo", "setupkeycloak")
   .Then(async request => {
     // only allow creating these objects in the keycloak namespace
-    const namespaceName = request.Raw.metadata.namespace;
+    const namespaceName = request.Raw.metadata?.namespace;
     if (namespaceName !== "keycloak") {
       return;
     }
-    const domain = getVal(request.Raw.data, "domain");
+    const domain = getVal(request, "domain");
 
     const k8sApi = new K8sAPI();
     await k8sApi.patchNamespaceForIstio("keycloak");
@@ -86,13 +86,13 @@ When(a.Secret)
   .WithLabel("todo", "createrealm")
   .Then(async request => {
     // only allow creating these objects in the keycloak namespace
-    const namespaceName = request.Raw.metadata.namespace;
+    const namespaceName = request.Raw.metadata?.namespace;
     if (namespaceName !== "keycloak") {
       return;
     }
 
-    const realm = getVal(request.Raw.data, "realm");
-    const domain = getVal(request.Raw.data, "domain");
+    const realm = getVal(request, "realm");
+    const domain = getVal(request, "domain");
 
     // TODO: we need an async way to make keycloak accessible.
     const k8sApi = new K8sAPI();
@@ -118,12 +118,14 @@ When(a.Secret)
   .Then(async request => {
     // XXX: BDW: TODO: check keycloak to see if the realm exists already, it's an error if it doesn't exist.
 
-    const realm = getVal(request.Raw.data, "realm");
+    request.Raw.data = request.Raw.data || {};
 
-    const clientId = getVal(request.Raw.data, "clientId");
+    const realm = getVal(request, "realm");
+
+    const clientId = getVal(request, "clientId");
     // XXX: BDW: client name isn't completely necessary and we can punt on it.
-    const clientName = getVal(request.Raw.data, "clientName");
-    const domain = getVal(request.Raw.data, "domain");
+    const clientName = getVal(request, "clientName");
+    const domain = getVal(request, "domain");
 
     // have keycloak generate the new client and return the secret
     const kcAPI = new KcAPI(keycloakBaseUrl);
@@ -137,6 +139,8 @@ When(a.Secret)
 
     // get the openid data from keycloak
     const openIdData = await kcAPI.GetOpenIdData(realm);
+
+    request.Raw.data = request.Raw.data || {};
 
     request.Raw.data["clientSecret"] =
       Buffer.from(clientSecret).toString("base64");
@@ -161,7 +165,7 @@ When(a.Secret)
       openIdData,
       redirectUri,
       clientSecret,
-      request.Raw.metadata.namespace,
+      request.Raw.metadata?.namespace ?? "",
       domain
     );
 
@@ -175,17 +179,21 @@ When(a.Secret)
   .IsCreated()
   .WithLabel("todo", "createuser")
   .Then(async request => {
+    request.Raw.data = request.Raw.data || {};
+
     const newUser = {
-      username: getVal(request.Raw.data, "user"),
-      firstName: getVal(request.Raw.data, "firstname"),
-      lastName: getVal(request.Raw.data, "lastname"),
-      email: getVal(request.Raw.data, "email"),
-      realm: getVal(request.Raw.data, "realm"),
-      domain: getVal(request.Raw.data, "domain"),
+      username: getVal(request, "user"),
+      firstName: getVal(request, "firstname"),
+      lastName: getVal(request, "lastname"),
+      email: getVal(request, "email"),
+      realm: getVal(request, "realm"),
+      domain: getVal(request, "domain"),
       enabled: true,
     };
+
     const kcAPI = new KcAPI(keycloakBaseUrl);
     const userPassword = await kcAPI.GetOrCreateUser(newUser);
+
     request.Raw.data["password"] = Buffer.from(userPassword).toString("base64");
     request.RemoveLabel("todo");
     request.SetLabel("done", "created");
@@ -270,9 +278,9 @@ async function doAuthServiceSecretStuff(
   await k8sApi.restartDeployment("authservice", "authservice");
 }
 
-function getVal(data: { [key: string]: string }, p: string): string {
-  if (data && data[p]) {
-    return Buffer.from(data[p], "base64").toString("utf-8");
+function getVal(request: PeprRequest<a.ConfigMap>, p: string): string {
+  if (request.Raw.data && request.Raw.data[p]) {
+    return Buffer.from(request.Raw.data[p], "base64").toString("utf-8");
   }
   throw new Error(`${p} not in the secret`);
 }

@@ -1,7 +1,8 @@
 import { Log, PeprModule } from "pepr";
-import { KeycloakAuthSvc } from "./capabilities/keycloak-authsvc";
+
 // cfg loads your pepr configuration from package.json
 import cfg from "./package.json";
+import { KeycloakAuthSvc } from "./capabilities";
 
 /**
  * This is the main entrypoint for this Pepr module. It is run when the module is started.
@@ -10,8 +11,8 @@ import cfg from "./package.json";
 new PeprModule(
   cfg,
   [
+    // Capabilities to register
     KeycloakAuthSvc,
-    // Your additional capabilities go here
   ],
   {
     // Any actions you want to perform before the request is processed, including modifying the request.
