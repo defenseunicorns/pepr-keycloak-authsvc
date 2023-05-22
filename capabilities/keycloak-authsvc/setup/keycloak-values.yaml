@@ -2,4 +2,3 @@ service:
   type: ClusterIP
 
 httpRelativePath: /auth/
-

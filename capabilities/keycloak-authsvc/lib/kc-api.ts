@@ -1,13 +1,8 @@
 import KeycloakAdminClient from "@keycloak/keycloak-admin-client";
-import { K8sAPI } from "./kubernetes-api";
-import { generatePassword } from "./util";
 import { fetch } from "pepr";
 
-async function createKcAdminClient(config: any) {
-  const KcAdminClient = (await import("@keycloak/keycloak-admin-client"))
-    .default;
-  return new KcAdminClient(config);
-}
+import { K8sAPI } from "./kubernetes-api";
+import { generatePassword } from "./util";
 
 export interface OpenIdData {
   authorization_endpoint: string;
@@ -63,7 +58,7 @@ export class KcAPI {
     });
     this.init = true;
     */
-   
+
     const namespace = "keycloak";
     const name = "keycloak";
 
@@ -75,7 +70,7 @@ export class KcAPI {
     );
 
     // XXX: BDW: todo: test with multiple types of keycloak deployments.
-    this.client = await createKcAdminClient({ baseUrl: this.keycloakBaseUrl });
+    this.client = new KeycloakAdminClient({ baseUrl: this.keycloakBaseUrl });
     await this.client.auth({
       username: "user",
       password: this.password,
@@ -99,7 +94,7 @@ export class KcAPI {
       if (error.response && error.response.status === 404) {
         // realm not found, will create it
       } else {
-        throw error
+        throw error;
       }
     }
 
@@ -107,7 +102,7 @@ export class KcAPI {
     const realm = await this.client.realms.create({
       id: realmName,
       realm: realmName,
-      enabled: true
+      enabled: true,
     });
 
     if (realm.realmName != realmName) {

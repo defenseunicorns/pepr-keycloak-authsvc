@@ -3,7 +3,6 @@ import {
   CoreV1Api,
   CustomObjectsApi,
   KubeConfig,
-  V1HostAlias,
 } from "@kubernetes/client-node";
 
 export class K8sAPI {
@@ -77,7 +76,7 @@ export class K8sAPI {
         requestAuthentication.kind.toLowerCase() + "s",
         name
       );
-      return
+      return;
     } catch (error) {
       if (error.response && error.response.statusCode === 404) {
         // object doesn't exist, go ahead and create it
@@ -120,12 +119,12 @@ export class K8sAPI {
   async restartDeployment(namespace: string, deployment: string) {
     const patch = [
       {
-        op: 'add',
-        path: '/spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt',
+        op: "add",
+        path: "/spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt",
         value: new Date().toISOString(),
       },
     ];
-  
+
     await this.k8sAppsV1Api.patchNamespacedDeployment(
       deployment,
       namespace,
@@ -139,28 +138,27 @@ export class K8sAPI {
     );
   }
 
-    async restartStatefulset(namespace: string, statefulSet: string) {
-      const patch = [
-        {
-          op: 'add',
-          path: '/spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt',
-          value: new Date().toISOString(),
-        },
-      ];
-    
-      await this.k8sAppsV1Api.patchNamespacedStatefulSet(
-        statefulSet,
-        namespace,
-        patch,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        { headers: { "content-type": "application/json-patch+json" } }
-      );
-    }
+  async restartStatefulset(namespace: string, statefulSet: string) {
+    const patch = [
+      {
+        op: "add",
+        path: "/spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt",
+        value: new Date().toISOString(),
+      },
+    ];
 
+    await this.k8sAppsV1Api.patchNamespacedStatefulSet(
+      statefulSet,
+      namespace,
+      patch,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { headers: { "content-type": "application/json-patch+json" } }
+    );
+  }
 
   async patchDeploymentForKeycloak(namespace: string, deployment: string) {
     const patch = [
@@ -254,184 +252,187 @@ export class K8sAPI {
     );
   }
 
-
   async createIstioGateway(name: string, namespace: string, domain: string) {
     // Define the Gateway resource
     const istioGateway = {
-        apiVersion: "networking.istio.io/v1alpha3",
-        kind: "Gateway",
-        metadata: {
-            name: name,
-            namespace: namespace,
+      apiVersion: "networking.istio.io/v1alpha3",
+      kind: "Gateway",
+      metadata: {
+        name: name,
+        namespace: namespace,
+      },
+      spec: {
+        selector: {
+          app: "istio-gateway",
         },
-        spec: {
-            selector: {
-                app: "istio-gateway",
+        servers: [
+          {
+            port: {
+              number: 80,
+              name: "http",
+              protocol: "HTTP",
             },
-            servers: [
-                {
-                    port: {
-                        number: 80,
-                        name: "http",
-                        protocol: "HTTP",
-                    },
-                    hosts: [
-                        `*.${domain}`,
-                    ],
-                },
-                {
-                    port: {
-                        number: 443,
-                        name: "https",
-                        protocol: "HTTPS",
-                    },
-                    tls: {
-                        mode: "SIMPLE",
-                        credentialName: "creds",
-                    },
-                    hosts: [
-                        `*.${domain}`,
-                    ],
-                },
-            ],
-        },
+            hosts: [`*.${domain}`],
+          },
+          {
+            port: {
+              number: 443,
+              name: "https",
+              protocol: "HTTPS",
+            },
+            tls: {
+              mode: "SIMPLE",
+              credentialName: "creds",
+            },
+            hosts: [`*.${domain}`],
+          },
+        ],
+      },
     };
 
     try {
-        // Try to create the Gateway resource
-        const result = await this.customObjectsApi.createNamespacedCustomObject(
-            "networking.istio.io",
-            "v1alpha3",
-            namespace,
-            "gateways",
-            istioGateway
-        );
-        console.log(`Gateway ${name} created in namespace ${namespace}`);
-        return result;
+      // Try to create the Gateway resource
+      const result = await this.customObjectsApi.createNamespacedCustomObject(
+        "networking.istio.io",
+        "v1alpha3",
+        namespace,
+        "gateways",
+        istioGateway
+      );
+      console.log(`Gateway ${name} created in namespace ${namespace}`);
+      return result;
     } catch (error) {
-        console.error(`Failed to create Gateway ${name} in namespace ${namespace}: ${error}`);
-        throw error;
+      console.error(
+        `Failed to create Gateway ${name} in namespace ${namespace}: ${error}`
+      );
+      throw error;
     }
-}
+  }
 
-
-
-async createOrUpdateAuthorizationPolicy(namespace: string, name: string, requestPrincipals: string[]) {
-  // Define the AuthorizationPolicy resource
-  const authorizationPolicy = {
+  async createOrUpdateAuthorizationPolicy(
+    namespace: string,
+    name: string,
+    requestPrincipals: string[]
+  ) {
+    // Define the AuthorizationPolicy resource
+    const authorizationPolicy = {
       apiVersion: "security.istio.io/v1beta1",
       kind: "AuthorizationPolicy",
       metadata: {
-          name: name,
-          namespace: namespace,
+        name: name,
+        namespace: namespace,
       },
       spec: {
-          selector: {
-              matchLabels: {
-                  protect: "keycloak",
-              },
+        selector: {
+          matchLabels: {
+            protect: "keycloak",
           },
-          rules: [
+        },
+        rules: [
+          {
+            from: [
               {
-                  from: [
-                      {
-                          source: {
-                              requestPrincipals: requestPrincipals,
-                          },
-                      },
-                  ],
+                source: {
+                  requestPrincipals: requestPrincipals,
+                },
               },
-          ],
+            ],
+          },
+        ],
       },
-  };
+    };
 
-  try {
+    try {
       // Attempt to replace the AuthorizationPolicy resource
       await this.customObjectsApi.replaceNamespacedCustomObject(
+        "security.istio.io",
+        "v1beta1",
+        namespace,
+        "authorizationpolicies",
+        name,
+        authorizationPolicy
+      );
+      console.log(
+        `AuthorizationPolicy ${name} replaced in namespace ${namespace}`
+      );
+    } catch (error) {
+      if (error.statusCode === 404) {
+        // If it does not exist, create it
+        await this.customObjectsApi.createNamespacedCustomObject(
           "security.istio.io",
           "v1beta1",
           namespace,
           "authorizationpolicies",
-          name,
           authorizationPolicy
-      );
-      console.log(`AuthorizationPolicy ${name} replaced in namespace ${namespace}`);
-  } catch (error) {
-      if (error.statusCode === 404) {
-          // If it does not exist, create it
-          await this.customObjectsApi.createNamespacedCustomObject(
-              "security.istio.io",
-              "v1beta1",
-              namespace,
-              "authorizationpolicies",
-              authorizationPolicy
-          );
-          console.log(`AuthorizationPolicy ${name} created in namespace ${namespace}`);
+        );
+        console.log(
+          `AuthorizationPolicy ${name} created in namespace ${namespace}`
+        );
       } else {
-          // If any other error, throw it
-          console.error(`Failed to create or replace AuthorizationPolicy ${name} in namespace ${namespace}: ${error}`);
-          throw error;
+        // If any other error, throw it
+        console.error(
+          `Failed to create or replace AuthorizationPolicy ${name} in namespace ${namespace}: ${error}`
+        );
+        throw error;
       }
+    }
   }
-}
 
-
-
-  async createOrUpdateIstioGateway(name: string, namespace: string, domain: string) {
+  async createOrUpdateIstioGateway(
+    name: string,
+    namespace: string,
+    domain: string
+  ) {
     // Define the Gateway resource
     const istioGateway = {
-        apiVersion: "networking.istio.io/v1alpha3",
-        kind: "Gateway",
-        metadata: {
-            name: name,
-            namespace: namespace,
+      apiVersion: "networking.istio.io/v1alpha3",
+      kind: "Gateway",
+      metadata: {
+        name: name,
+        namespace: namespace,
+      },
+      spec: {
+        selector: {
+          app: "istio-gateway",
         },
-        spec: {
-            selector: {
-                app: "istio-gateway",
+        servers: [
+          {
+            port: {
+              number: 80,
+              name: "http",
+              protocol: "HTTP",
             },
-            servers: [
-                {
-                    port: {
-                        number: 80,
-                        name: "http",
-                        protocol: "HTTP",
-                    },
-                    hosts: [
-                        `*.${domain}`,
-                    ],
-                },
-                {
-                    port: {
-                        number: 443,
-                        name: "https",
-                        protocol: "HTTPS",
-                    },
-                    tls: {
-                        mode: "SIMPLE",
-                        credentialName: "creds",
-                    },
-                    hosts: [
-                        `*.${domain}`,
-                    ],
-                },
-            ],
-        },
+            hosts: [`*.${domain}`],
+          },
+          {
+            port: {
+              number: 443,
+              name: "https",
+              protocol: "HTTPS",
+            },
+            tls: {
+              mode: "SIMPLE",
+              credentialName: "creds",
+            },
+            hosts: [`*.${domain}`],
+          },
+        ],
+      },
     };
 
     try {
-        // Check if the Gateway exists
-        await this.customObjectsApi.getNamespacedCustomObject(
-            "networking.istio.io",
-            "v1alpha3",
-            namespace,
-            "gateways",
-            name
-        );
+      // Check if the Gateway exists
+      await this.customObjectsApi.getNamespacedCustomObject(
+        "networking.istio.io",
+        "v1alpha3",
+        namespace,
+        "gateways",
+        name
+      );
 
-        // If it exists, replace it
-        // XXX: BDW: todo: this doesn't work.
-        /*
+      // If it exists, replace it
+      // XXX: BDW: todo: this doesn't work.
+      /*
         const result = await this.customObjectsApi.replaceNamespacedCustomObject(
             "networking.istio.io",
             "v1alpha3",
@@ -442,30 +443,30 @@ async createOrUpdateAuthorizationPolicy(namespace: string, name: string, request
         );
         */
 
-        console.log(`Gateway ${name} replaced in namespace ${namespace}`);
-        return
-
+      console.log(`Gateway ${name} replaced in namespace ${namespace}`);
+      return;
     } catch (error) {
-        if (error.statusCode === 404) {
-            // If it does not exist, create it
-            const result = await this.customObjectsApi.createNamespacedCustomObject(
-                "networking.istio.io",
-                "v1alpha3",
-                namespace,
-                "gateways",
-                istioGateway
-            );
+      if (error.statusCode === 404) {
+        // If it does not exist, create it
+        const result = await this.customObjectsApi.createNamespacedCustomObject(
+          "networking.istio.io",
+          "v1alpha3",
+          namespace,
+          "gateways",
+          istioGateway
+        );
 
-            console.log(`Gateway ${name} created in namespace ${namespace}`);
-            return
-        }
+        console.log(`Gateway ${name} created in namespace ${namespace}`);
+        return;
+      }
 
-        // If any other error, log and throw it
-        console.error(`Failed to create or replace Gateway ${name} in namespace ${namespace}: ${error}`);
-        throw error;
+      // If any other error, log and throw it
+      console.error(
+        `Failed to create or replace Gateway ${name} in namespace ${namespace}: ${error}`
+      );
+      throw error;
     }
-}
-
+  }
 
   async createOrUpdateSecret(secretName, namespace, location, text) {
     // Create the Secret object
@@ -496,22 +497,26 @@ async createOrUpdateAuthorizationPolicy(namespace: string, name: string, request
     }
   }
 
-  async  getExternalIp(namespace: string, serviceName: string): Promise<string | null> {
-      const res = await this.k8sApi.readNamespacedService(serviceName, namespace);
-      const service = res.body;
-    
-      if (service.status && service.status.loadBalancer && service.status.loadBalancer.ingress) {
-          const ingress = service.status.loadBalancer.ingress[0];
-          if (ingress.ip) {
-              return ingress.ip;
-          } else if (ingress.hostname) {
-              // If there's no IP, the load balancer may be using a hostname
-              return ingress.hostname;
-          }
+  async getExternalIp(
+    namespace: string,
+    serviceName: string
+  ): Promise<string | null> {
+    const res = await this.k8sApi.readNamespacedService(serviceName, namespace);
+    const service = res.body;
+
+    if (
+      service.status &&
+      service.status.loadBalancer &&
+      service.status.loadBalancer.ingress
+    ) {
+      const ingress = service.status.loadBalancer.ingress[0];
+      if (ingress.ip) {
+        return ingress.ip;
+      } else if (ingress.hostname) {
+        // If there's no IP, the load balancer may be using a hostname
+        return ingress.hostname;
       }
-      return null;
+    }
+    return null;
   }
-  
-
-
 }

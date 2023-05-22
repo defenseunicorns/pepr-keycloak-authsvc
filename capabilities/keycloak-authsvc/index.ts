@@ -1,11 +1,8 @@
-import { Capability, a, fetch } from "pepr";
+import { Capability, a } from "pepr";
+
 import { Config, CreateChainInput } from "./lib/authservice/secretConfig";
 import { KcAPI, OpenIdData } from "./lib/kc-api";
 import { K8sAPI } from "./lib/kubernetes-api";
-
-import {
-  V1HostAlias,
-} from "@kubernetes/client-node";
 
 export const KeycloakAuthSvc = new Capability({
   name: "keycloak-authsvc",
@@ -14,7 +11,7 @@ export const KeycloakAuthSvc = new Capability({
 });
 
 const keycloakBaseUrl = "https://keycloak.bigbang.dev/auth";
-const hardCodedGateway = {"namespace": "istio-system", "name": "bigbang"}
+const hardCodedGateway = { namespace: "istio-system", name: "bigbang" };
 const { When } = KeycloakAuthSvc;
 
 // Validate the authservice secret.
@@ -33,46 +30,49 @@ When(a.Secret)
     request.SetLabel("done", "validated-syntax");
   });
 
-
 /*
   kubectl create secret generic setup -n keycloak --from-literal=domain=bigbang.dev
   kubectl label secret setup -n keycloak todo=setupkeycloak
 */
 // SetupKeyCloak networking (istio)
 When(a.Secret)
-.IsCreatedOrUpdated()
-.WithName("setup")
-.WithLabel("todo", "setupkeycloak")
-.Then(async request => {
-  // only allow creating these objects in the keycloak namespace
-  const namespaceName = request.Raw.metadata.namespace;
-  if (namespaceName !== "keycloak") {
-    return;
-  }
-  const domain = getVal(request.Raw.data, "domain");
+  .IsCreatedOrUpdated()
+  .WithName("setup")
+  .WithLabel("todo", "setupkeycloak")
+  .Then(async request => {
+    // only allow creating these objects in the keycloak namespace
+    const namespaceName = request.Raw.metadata.namespace;
+    if (namespaceName !== "keycloak") {
+      return;
+    }
+    const domain = getVal(request.Raw.data, "domain");
 
-  const k8sApi = new K8sAPI();
-  await k8sApi.patchNamespaceForIstio("keycloak")
-  await k8sApi.restartStatefulset("keycloak", "keycloak")
+    const k8sApi = new K8sAPI();
+    await k8sApi.patchNamespaceForIstio("keycloak");
+    await k8sApi.restartStatefulset("keycloak", "keycloak");
 
-  await k8sApi.patchNamespaceForIstio("authservice")
-  await k8sApi.restartDeployment("authservice", "authservice")
+    await k8sApi.patchNamespaceForIstio("authservice");
+    await k8sApi.restartDeployment("authservice", "authservice");
 
-  // XXX: BDW: restart the keycloak statefulset
-  await k8sApi.createOrUpdateIstioGateway(hardCodedGateway.name, hardCodedGateway.namespace, domain);
-  await k8sApi.CreateOrUpdateVirtualService(
-    namespaceName,
-    "keycloak",
-    `${hardCodedGateway.namespace}/${hardCodedGateway.name}`,
-    domain,
-    "keycloak",
-    80
-  );
-  request.RemoveLabel("todo");
-  request.SetLabel("done", "setupkeycloak");
+    // XXX: BDW: restart the keycloak statefulset
+    await k8sApi.createOrUpdateIstioGateway(
+      hardCodedGateway.name,
+      hardCodedGateway.namespace,
+      domain
+    );
+    await k8sApi.CreateOrUpdateVirtualService(
+      namespaceName,
+      "keycloak",
+      `${hardCodedGateway.namespace}/${hardCodedGateway.name}`,
+      domain,
+      "keycloak",
+      80
+    );
+    request.RemoveLabel("todo");
+    request.SetLabel("done", "setupkeycloak");
 
-  // TODO: patch istio configmap to enable authservice (istio operator can do it)
-});
+    // TODO: patch istio configmap to enable authservice (istio operator can do it)
+  });
 
 // TODO: we can derive the realm name and domain from the authn/authz secrets
 /* Demo steps
@@ -106,8 +106,6 @@ When(a.Secret)
     request.SetLabel("done", "created");
   });
 
-
-
 /* demo to create the client secret
 kubectl create secret generic configclient -n podinfo --from-literal=realm=demo --from-literal=clientId=podinfo --from-literal=clientName=podinfo --from-literal=domain=bigbang.dev
 kubectl label secret configclient -n podinfo  todo=createclient
@@ -119,7 +117,7 @@ When(a.Secret)
   .WithLabel("todo", "createclient")
   .Then(async request => {
     // XXX: BDW: TODO: check keycloak to see if the realm exists already, it's an error if it doesn't exist.
-  
+
     const realm = getVal(request.Raw.data, "realm");
 
     const clientId = getVal(request.Raw.data, "clientId");
@@ -157,15 +155,19 @@ When(a.Secret)
       openIdData.end_session_endpoint
     ).toString("base64");
 
-
     // get the existing config.json secret
-    await doAuthServiceSecretStuff(clientName, openIdData, redirectUri, clientSecret, request.Raw.metadata.namespace, domain);
+    await doAuthServiceSecretStuff(
+      clientName,
+      openIdData,
+      redirectUri,
+      clientSecret,
+      request.Raw.metadata.namespace,
+      domain
+    );
 
     request.RemoveLabel("todo");
     request.SetLabel("done", "createclient");
   });
-
-
 
 // XXX: BDW: untested.
 // keycloak: create a user (example only)
@@ -189,9 +191,14 @@ When(a.Secret)
     request.SetLabel("done", "created");
   });
 
-
-
-async function doAuthServiceSecretStuff(clientName: string, openIdData: OpenIdData, redirectUri: string, clientSecret: string, namespace: string, domain: string) {
+async function doAuthServiceSecretStuff(
+  clientName: string,
+  openIdData: OpenIdData,
+  redirectUri: string,
+  clientSecret: string,
+  namespace: string,
+  domain: string
+) {
   const k8sApi = new K8sAPI();
   const configRaw = await k8sApi.getSecretValue(
     "authservice",
@@ -214,7 +221,9 @@ async function doAuthServiceSecretStuff(clientName: string, openIdData: OpenIdDa
   };
 
   // remove it if it exists, and replace it (also remove local)
-  oldConfig.chains = oldConfig.chains.filter(obj => obj.name !== clientName && obj.name !== "local");
+  oldConfig.chains = oldConfig.chains.filter(
+    obj => obj.name !== clientName && obj.name !== "local"
+  );
   oldConfig.chains.push(Config.CreateSingleChain(chainInput));
 
   // XXX: make sure we're not just appending.
@@ -245,7 +254,6 @@ async function doAuthServiceSecretStuff(clientName: string, openIdData: OpenIdDa
   );
   */
 
-
   // XXX: BDW hardcoded gateway, but in theory we can create a gateway for each app
   await k8sApi.CreateOrUpdateVirtualService(
     namespace,
@@ -258,10 +266,7 @@ async function doAuthServiceSecretStuff(clientName: string, openIdData: OpenIdDa
 
   await k8sApi.patchNamespaceForIstio(namespace);
 
-  await k8sApi.patchDeploymentForKeycloak(
-    namespace,
-    clientName
-  );
+  await k8sApi.patchDeploymentForKeycloak(namespace, clientName);
   await k8sApi.restartDeployment("authservice", "authservice");
 }
 
