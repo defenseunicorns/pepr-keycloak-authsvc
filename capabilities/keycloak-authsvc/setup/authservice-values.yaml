@@ -6,4 +6,3 @@ global:
   oidc:
     host: keycloak.bigbang.dev
     realm: demo
-

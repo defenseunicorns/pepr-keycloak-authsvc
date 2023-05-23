@@ -1,13 +1,7 @@
 import KeycloakAdminClient from "@keycloak/keycloak-admin-client";
 import { K8sAPI } from "./kubernetes-api";
-import { generatePassword } from "./util";
 import { fetch } from "pepr";
-
-async function createKcAdminClient(config: any) {
-  const KcAdminClient = (await import("@keycloak/keycloak-admin-client"))
-    .default;
-  return new KcAdminClient(config);
-}
+import KcAdminClient from "@keycloak/keycloak-admin-client";
 
 export interface OpenIdData {
   authorization_endpoint: string;
@@ -22,6 +16,7 @@ export class KcAPI {
   init: boolean;
   client: KeycloakAdminClient;
   password: string;
+  username: string;
   k8sApi: K8sAPI;
 
   constructor(keycloakBaseUrl: string) {
@@ -34,10 +29,8 @@ export class KcAPI {
       return;
     }
 
-    /* for bigbang
-
-        const namespace = "keycloak";
-    // XXX: BDW: this is from the bigbang chart
+    // XXX: BDW: hard coded.
+    const namespace = "keycloak";
     const name = "keycloak-env";
 
     this.k8sApi = new K8sAPI();
@@ -54,30 +47,9 @@ export class KcAPI {
     );
 
     // XXX: BDW: todo: test with multiple types of keycloak deployments.
-    this.client = await createKcAdminClient({ baseUrl: this.keycloakBaseUrl });
+    this.client = new KcAdminClient({ baseUrl: this.keycloakBaseUrl });
     await this.client.auth({
       username: this.username,
-      password: this.password,
-      grantType: "password",
-      clientId: "admin-cli",
-    });
-    this.init = true;
-    */
-   
-    const namespace = "keycloak";
-    const name = "keycloak";
-
-    this.k8sApi = new K8sAPI();
-    this.password = await this.k8sApi.getSecretValue(
-      namespace,
-      name,
-      "admin-password"
-    );
-
-    // XXX: BDW: todo: test with multiple types of keycloak deployments.
-    this.client = await createKcAdminClient({ baseUrl: this.keycloakBaseUrl });
-    await this.client.auth({
-      username: "user",
       password: this.password,
       grantType: "password",
       clientId: "admin-cli",
@@ -99,7 +71,7 @@ export class KcAPI {
       if (error.response && error.response.status === 404) {
         // realm not found, will create it
       } else {
-        throw error
+        throw error;
       }
     }
 
@@ -107,7 +79,7 @@ export class KcAPI {
     const realm = await this.client.realms.create({
       id: realmName,
       realm: realmName,
-      enabled: true
+      enabled: true,
     });
 
     if (realm.realmName != realmName) {
@@ -154,51 +126,6 @@ export class KcAPI {
     return newClientsForSecret[0].secret;
   }
 
-  async GetOrCreateUser(userConfig): Promise<string> {
-    await this.connect();
-
-    // Find user by username
-    const users = await this.client.users.find(userConfig);
-
-    // If user exists, return it
-    if (users.length > 1) {
-      throw new Error(
-        `Found more than one user with username ${userConfig.username}`
-      );
-    }
-
-    let id: string;
-
-    if (users.length === 1) {
-      id = users[0].id;
-    } else {
-      const createdUserId = await this.client.users.create(userConfig);
-      id = createdUserId.id;
-    }
-
-    // Set a temporary password, make sure the password generator is valid.
-    const tempPassword = generatePassword(12);
-    await this.client.users.resetPassword({
-      id: id,
-      realm: userConfig.realmName,
-      credential: {
-        type: "password",
-        value: tempPassword,
-        temporary: true,
-      },
-    });
-
-    // Find and return the newly created user with the temporary password
-    const newUser = await this.client.users.find(userConfig);
-
-    if (newUser.length != 1) {
-      throw new Error(
-        `Found more than one user with username ${userConfig.username}`
-      );
-    }
-    return tempPassword;
-  }
-
   async GetOpenIdData(realmName: string): Promise<OpenIdData> {
     const response = await fetch<OpenIdData>(
       `${this.keycloakBaseUrl}/realms/${realmName}/.well-known/openid-configuration`
@@ -209,5 +136,11 @@ export class KcAPI {
       );
     }
     return response.data;
+  }
+
+  async ImportRealm(realm: string) {
+    await this.connect();
+    // TODO: can I convert to realm represetnation or let the API call fail?
+    await this.client.realms.create(JSON.parse(realm));
   }
 }
