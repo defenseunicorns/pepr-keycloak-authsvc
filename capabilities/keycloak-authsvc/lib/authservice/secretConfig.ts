@@ -1,12 +1,5 @@
-import {
-  AccessTokenConfig,
-  IdTokenConfig,
-  JwksFetcherConfig,
-  LogoutConfig,
-  OIDCConfig,
-} from "./oidcSectionConfig";
+import { OIDCConfig } from "./oidcSectionConfig";
 
-// XXX: BDW: make sure they are valid regexes
 export class StringMatch {
   exact?: string;
   prefix?: string;
@@ -14,16 +7,16 @@ export class StringMatch {
   regex?: string;
 
   constructor(json: any) {
-    if ("exact" in json) {
+    if (json.exact !== undefined) {
       this.exact = json.exact;
     }
-    if ("prefix" in json) {
+    if (json.prefix !== undefined) {
       this.prefix = json.prefix;
     }
-    if ("suffix" in json) {
+    if (json.suffix !== undefined) {
       this.suffix = json.suffix;
     }
-    if ("regex" in json) {
+    if (json.regex !== undefined) {
       this.regex = json.regex;
     }
   }
@@ -57,7 +50,6 @@ export class TriggerRule {
   }
 }
 
-// XXX: BDW: make sure both aren't set.
 export class Match {
   header: string;
   prefix?: string;
@@ -66,11 +58,17 @@ export class Match {
   constructor(json: any) {
     this.header = json.header;
 
-    if ("prefix" in json) {
+    if (json.prefix) {
       this.prefix = json.prefix;
     }
-    if ("equality" in json) {
+    if (json.equality) {
       this.equality = json.equality;
+    }
+    if (!this.prefix && !this.equality) {
+      throw new TypeError("prefix or equality must be set");
+    }
+    if (this.prefix && this.equality) {
+      throw new TypeError("prefix and equality cannot both be set");
     }
   }
   toObject(): Record<string, any> {
@@ -88,11 +86,17 @@ export class Filter {
   oidc_override?: OIDCConfig;
 
   constructor(json: any) {
-    if ("oidc" in json) {
+    if (json.oidc) {
       this.oidc = new OIDCConfig(json.oidc);
     }
-    if ("oidc_override" in json) {
+    if (json.oidc_override) {
       this.oidc_override = new OIDCConfig(json.oidc_override);
+    }
+    if (!this.oidc && !this.oidc_override) {
+      throw new TypeError("oidc or oidc_override must be set");
+    }
+    if (this.oidc && this.oidc_override) {
+      throw new TypeError("oidc and oidc_override cannot both be set");
     }
   }
 
@@ -118,7 +122,7 @@ export class FilterChain {
   constructor(json: any) {
     this.name = json.name;
 
-    if ("match" in json) {
+    if (json.match) {
       this.match = new Match(json.match);
     }
 
@@ -136,12 +140,8 @@ export class FilterChain {
 export interface CreateChainInput {
   name: string;
   fqdn: string;
-  authorization_uri: string;
-  token_uri: string;
-  jwks_uri: string;
   redirect_uri: string;
   clientSecret: string;
-  logout_uri: string;
 }
 
 export class Config {
@@ -161,52 +161,38 @@ export class Config {
     this.log_level = json.log_level;
     this.threads = json.threads;
 
-    if ("trigger_rules" in json) {
+    if (json.trigger_rules !== undefined) {
       this.trigger_rules = json.trigger_rules.map(
         (rule: any) => new TriggerRule(rule)
       );
     }
 
-    if ("default_oidc_config" in json) {
+    if (json.default_oidc_config !== undefined) {
       this.default_oidc_config = new OIDCConfig(json.default_oidc_config);
     }
 
-    if ("allow_unmatched_requests" in json) {
+    if (json.allow_unmatched_requests !== undefined) {
       this.allow_unmatched_requests = json.allow_unmatched_requests;
     }
   }
 
   static CreateSingleChain(input: CreateChainInput): FilterChain {
     const oidcConfig = new OIDCConfig({
-      skip_verify_peer_cert: true,
-      authorization_uri: input.authorization_uri,
-      token_uri: input.token_uri,
-      jwks_fetcher: new JwksFetcherConfig({
-        jwks_uri: input.jwks_uri,
-        periodic_fetch_interval_sec: 60,
-        skip_verify_peer_cert: true,
-      }),
-      id_token: new IdTokenConfig(),
-      access_token: new AccessTokenConfig(),
-      absolute_session_timeout: 0,
-      idle_session_timeout: 0,
       callback_uri: input.redirect_uri,
-      logout: new LogoutConfig({
-        path: "/logout",
-        redirect_uri: input.logout_uri,
-      }),
       client_id: input.name,
       client_secret: input.clientSecret,
       cookie_name_prefix: input.name,
     });
 
     const filter = new Filter({
-      oidc: oidcConfig,
+      oidc_override: oidcConfig,
     });
+
+    const matchMe = new Match({ header: ":authority", equality: input.fqdn });
 
     return new FilterChain({
       name: input.name,
-      match: new Match({ header: ":authority", equality: input.fqdn }),
+      match: matchMe,
       filters: [filter],
     });
   }
