@@ -1,6 +1,6 @@
 import { Capability, PeprRequest, a } from "pepr";
-import { Config, CreateChainInput } from "./lib/authservice/secretConfig";
 import { KcAPI } from "./lib/kc-api";
+import { AuthServiceSecretBuilder } from "./lib/authservice/secretBuilder";
 import { K8sAPI } from "./lib/kubernetes-api";
 
 export const KeycloakAuthSvc = new Capability({
@@ -48,14 +48,14 @@ When(a.ConfigMap)
       await kcAPI.ImportRealm(request.Raw.data.realmJson);
       request.RemoveLabel("todo");
       request.SetLabel("done", "created");
-      } catch (e) {
+    } catch (e) {
       console.log(`error ${e}`);
       request.SetLabel("error", e.message);
     }
   });
 
 /* demo to create the client secret
-kubectl create secret generic configclient -n podinfo --from-literal=realm=cocowow --from-literal=clientId=podinfo --from-literal=clientName=podinfo --from-literal=domain=bigbang.dev
+kubectl create secret generic configclient -n podinfo --from-literal=realm=cocowow --from-literal=id=podinfo --from-literal=name=podinfo --from-literal=domain=bigbang.dev
 kubectl label secret configclient -n podinfo  todo=createclient
 */
 // CreateClient
@@ -66,99 +66,46 @@ When(a.Secret)
   .Then(async request => {
     try {
       const realm = getVal(request, "realm");
-      const clientId = getVal(request, "clientId");
-      const clientName = getVal(request, "clientName");
+      const id = getVal(request, "id");
+      const name = getVal(request, "name");
       const domain = getVal(request, "domain");
 
       // have keycloak generate the new client and return the secret
       const kcAPI = new KcAPI(keycloakBaseUrl);
-      const redirectUri = `https://${clientId}.${domain}/login`;
+      const redirectUri = `https://${id}.${domain}/login`;
       const clientSecret = await kcAPI.GetOrCreateClient(
         realm,
-        clientName,
-        clientId,
+        name,
+        id,
         redirectUri
       );
 
-      // Thinking ahead to a world where keycloak isn't somethingg we have access to...
+      const newSecret = {
+        realm: realm,
+        id: id,
+        name: name,
+        domain: domain,
+        secret: clientSecret,
+        redirect_uri: redirectUri,
+      };
 
-      // update the the client secret
-      request.Raw.data["clientSecret"] =
-        Buffer.from(clientSecret).toString("base64");
-      request.Raw.data["redirect_uri"] =
-        Buffer.from(redirectUri).toString("base64");
-
-      // get the existing config.json secret
-      await doAuthServiceSecretStuff(
-        clientName,
-        redirectUri,
-        clientSecret,
-        request.Raw.metadata.namespace,
-        domain
+      const k8sApi = new K8sAPI();
+      await k8sApi.createOrUpdateSecretFromJSON(
+        `mission-${name}`,
+        "authservice",
+        newSecret
       );
+
+      const authserviceSecretBuilder = new AuthServiceSecretBuilder(k8sApi);
+      await authserviceSecretBuilder.BuildAuthServiceSecret();
+      await k8sApi.restartDeployment("authservice", "authservice");
+
       request.RemoveLabel("todo");
       request.SetLabel("done", "createclient");
     } catch (e) {
       console.log(`error ${e.stack}`);
-      request.SetLabel("error", e.message);
     }
-
   });
-
-async function doAuthServiceSecretStuff(
-  clientName: string,
-  redirectUri: string,
-  clientSecret: string,
-  namespace: string,
-  domain: string
-) {
-  const k8sApi = new K8sAPI();
-  const configRaw = await k8sApi.getSecretValue(
-    "authservice",
-    "authservice",
-    "config.json"
-  );
-  const oldConfig = new Config(JSON.parse(configRaw));
-
-  // create the new config.json secret
-  const chainInput: CreateChainInput = {
-    name: clientName,
-    fqdn: `${clientName}.${domain}`,
-    redirect_uri: redirectUri,
-    clientSecret: clientSecret,
-  };
-
-  // TODO: backup the original secret, we will know if the filter reduces the size of the chain.
-  // TODO: could also populate the CHANGE_ME in the authservice config.json with keycloak right here.
-
-  // remove the default chain necessary to keep authservice running
-  oldConfig.chains = oldConfig.chains.filter(
-    obj => obj.name !== clientName && obj.name !== "local"
-  );
-  //const chains = oldConfig.chains.push(Config.CreateSingleChain(chainInput));
-
-  // XXX: BDW: TODO: build all the chains from these secret files.
-  const chains = [Config.CreateSingleChain(chainInput)];
-
-  const newConfig = new Config({
-    chains: [chains],
-    listen_address: oldConfig.listen_address,
-    listen_port: oldConfig.listen_port,
-    log_level: oldConfig.log_level,
-    threads: oldConfig.threads,
-    default_oidc_config: oldConfig.default_oidc_config,
-  });
-
-  // TODO: backup the old secret
-  await k8sApi.createOrUpdateSecret(
-    "authservice",
-    "authservice",
-    "config.json",
-    JSON.stringify(newConfig)
-  );
-
-  await k8sApi.restartDeployment("authservice", "authservice");
-}
 
 function getVal(request: PeprRequest<a.Secret>, p: string): string {
   if (request.Raw.data && request.Raw.data[p]) {

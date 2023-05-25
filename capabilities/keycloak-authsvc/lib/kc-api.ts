@@ -1,7 +1,13 @@
 import KeycloakAdminClient from "@keycloak/keycloak-admin-client";
 import { K8sAPI } from "./kubernetes-api";
 import { fetch } from "pepr";
-import KcAdminClient from "@keycloak/keycloak-admin-client";
+
+export interface Client {
+  clientId: string;
+  clientName: string;
+  clientSecret: string;
+  redirectUri: string[];
+}
 
 export interface OpenIdData {
   authorization_endpoint: string;
@@ -47,7 +53,7 @@ export class KcAPI {
     );
 
     // XXX: BDW: todo: test with multiple types of keycloak deployments.
-    this.client = new KcAdminClient({ baseUrl: this.keycloakBaseUrl });
+    this.client = new KeycloakAdminClient({ baseUrl: this.keycloakBaseUrl });
     await this.client.auth({
       username: this.username,
       password: this.password,
@@ -142,5 +148,27 @@ export class KcAPI {
     await this.connect();
     // TODO: can I convert to realm represetnation or let the API call fail?
     await this.client.realms.create(JSON.parse(realm));
+  }
+
+  async GetClientsInRealm(realmName: string): Promise<Client[]> {
+    await this.connect();
+    const realm = await this.client.realms.findOne({ realm: realmName });
+
+    if (!realm) {
+      throw new Error(`Realm ${realmName} not found`);
+    }
+
+    // Fetch clients in the realm
+    const clients = await this.client.clients.find({ realm: realmName });
+
+    // Map the response to the Client interface
+    const typedClients = clients.map(client => ({
+      clientId: client.clientId,
+      clientName: client.name,
+      clientSecret: client.secret,
+      redirectUri: client.redirectUris,
+    }));
+
+    return typedClients;
   }
 }

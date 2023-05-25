@@ -70,7 +70,6 @@ export class Match {
     if (this.prefix && this.equality) {
       throw new TypeError("prefix and equality cannot both be set");
     }
-
   }
   toObject(): Record<string, any> {
     return {
@@ -138,9 +137,9 @@ export class FilterChain {
 
 export interface CreateChainInput {
   name: string;
-  fqdn: string;
+  hostname: string;
   redirect_uri: string;
-  clientSecret: string;
+  secret: string;
 }
 
 export class Config {
@@ -179,7 +178,7 @@ export class Config {
     const oidcConfig = new OIDCConfig({
       callback_uri: input.redirect_uri,
       client_id: input.name,
-      client_secret: input.clientSecret,
+      client_secret: input.secret,
       cookie_name_prefix: input.name,
     });
 
@@ -187,7 +186,10 @@ export class Config {
       oidc_override: oidcConfig,
     });
 
-    const matchMe = new Match({ header: ":authority", equality: input.fqdn });
+    const matchMe = new Match({
+      header: ":authority",
+      equality: input.hostname,
+    });
 
     return new FilterChain({
       name: input.name,

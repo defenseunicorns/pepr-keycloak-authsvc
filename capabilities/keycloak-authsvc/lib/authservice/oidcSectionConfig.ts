@@ -49,6 +49,7 @@ export class LogoutConfig {
         "redirect_uri is required and must be at least 1 character long"
       );
     }
+
     // Validate the URI
     new URL(json.redirect_uri);
 
