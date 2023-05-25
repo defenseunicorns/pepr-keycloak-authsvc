@@ -21,15 +21,10 @@ kubectl label secret configrealm -n keycloak  todo=createrealm
 // CreateRealm from a secret,
 When(a.Secret)
   .IsCreatedOrUpdated()
+  .InNamespace("keycloak")
   .WithName("configrealm")
   .WithLabel("todo", "createrealm")
   .Then(async request => {
-    // only allow creating these objects in the keycloak namespace
-    const namespaceName = request.Raw.metadata.namespace;
-    if (namespaceName !== "keycloak") {
-      return;
-    }
-
     const realm = getVal(request, "realm");
     const kcAPI = new KcAPI(keycloakBaseUrl);
     await kcAPI.GetOrCreateRealm(realm);
@@ -38,26 +33,25 @@ When(a.Secret)
   });
 
 // import a realm from a configmap,
+/* Demo steps
+kubectl create cm configrealm -n podinfo --from-file=realmJson
+kubectl label cm configrealm -n podinfo  todo=createrealm
+*/
 When(a.ConfigMap)
   .IsCreatedOrUpdated()
+  .InNamespace("keycloak")
   .WithName("configrealm")
   .WithLabel("todo", "createrealm")
   .Then(async request => {
-    // only allow creating these objects in the keycloak namespace
-    const namespaceName = request.Raw.metadata.namespace;
-    if (namespaceName !== "keycloak") {
-      return;
-    }
-
     try {
       const kcAPI = new KcAPI(keycloakBaseUrl);
       await kcAPI.ImportRealm(request.Raw.data.realmJson);
-    } catch (e) {
+      request.RemoveLabel("todo");
+      request.SetLabel("done", "created");
+      } catch (e) {
       console.log(`error ${e}`);
+      request.SetLabel("error", e.message);
     }
-
-    request.RemoveLabel("todo");
-    request.SetLabel("done", "created");
   });
 
 /* demo to create the client secret
@@ -86,6 +80,8 @@ When(a.Secret)
         redirectUri
       );
 
+      // Thinking ahead to a world where keycloak isn't somethingg we have access to...
+
       // update the the client secret
       request.Raw.data["clientSecret"] =
         Buffer.from(clientSecret).toString("base64");
@@ -100,11 +96,13 @@ When(a.Secret)
         request.Raw.metadata.namespace,
         domain
       );
+      request.RemoveLabel("todo");
+      request.SetLabel("done", "createclient");
     } catch (e) {
       console.log(`error ${e.stack}`);
+      request.SetLabel("error", e.message);
     }
-    request.RemoveLabel("todo");
-    request.SetLabel("done", "createclient");
+
   });
 
 async function doAuthServiceSecretStuff(

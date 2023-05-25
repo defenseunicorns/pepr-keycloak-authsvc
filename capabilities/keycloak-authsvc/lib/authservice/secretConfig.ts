@@ -70,6 +70,7 @@ export class Match {
     if (this.prefix && this.equality) {
       throw new TypeError("prefix and equality cannot both be set");
     }
+
   }
   toObject(): Record<string, any> {
     return {
@@ -80,7 +81,6 @@ export class Match {
   }
 }
 
-// XXX: BDW: make sure both aren't set,
 export class Filter {
   oidc?: OIDCConfig;
   oidc_override?: OIDCConfig;
@@ -109,7 +109,6 @@ export class Filter {
     if (this.oidc_override) {
       obj.oidc_override = this.oidc_override.toObject();
     }
-
     return obj;
   }
 }
