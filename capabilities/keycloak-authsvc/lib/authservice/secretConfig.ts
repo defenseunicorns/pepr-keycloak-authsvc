@@ -135,14 +135,14 @@ export class FilterChain {
   }
 }
 
-export interface CreateChainInput {
+export interface ChainInput {
   name: string;
   hostname: string;
   redirect_uri: string;
   secret: string;
 }
 
-export class Config {
+export class AuthserviceConfig {
   chains: FilterChain[];
   listen_address: string;
   listen_port: number;
@@ -174,7 +174,7 @@ export class Config {
     }
   }
 
-  static CreateSingleChain(input: CreateChainInput): FilterChain {
+  static createSingleChain(input: ChainInput): FilterChain {
     const oidcConfig = new OIDCConfig({
       callback_uri: input.redirect_uri,
       client_id: input.name,

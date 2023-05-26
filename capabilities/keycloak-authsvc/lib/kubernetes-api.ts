@@ -1,21 +1,18 @@
 import {
   AppsV1Api,
   CoreV1Api,
-  CustomObjectsApi,
   KubeConfig,
   V1Secret,
 } from "@kubernetes/client-node";
 
 export class K8sAPI {
   k8sApi: CoreV1Api;
-  customObjectsApi: CustomObjectsApi;
   k8sAppsV1Api: AppsV1Api;
 
   constructor() {
     const kc = new KubeConfig();
     kc.loadFromDefault();
     this.k8sApi = kc.makeApiClient(CoreV1Api);
-    this.customObjectsApi = kc.makeApiClient(CustomObjectsApi);
     this.k8sAppsV1Api = kc.makeApiClient(AppsV1Api);
   }
 
@@ -103,35 +100,6 @@ export class K8sAPI {
     );
   }
 
-  async createOrUpdateSecret(secretName, namespace, location, text) {
-    // Create the Secret object
-    const secret = {
-      apiVersion: "v1",
-      kind: "Secret",
-      metadata: {
-        name: secretName,
-        namespace: namespace,
-      },
-      data: {
-        [location]: Buffer.from(text).toString("base64"),
-      },
-    };
-
-    try {
-      // Check if the Secret exists
-      await this.k8sApi.readNamespacedSecret(secretName, namespace);
-
-      // If the Secret exists, update it
-      await this.k8sApi.replaceNamespacedSecret(secretName, namespace, secret);
-    } catch (e) {
-      if (e.response && e.response.statusCode === 404) {
-        await this.k8sApi.createNamespacedSecret(namespace, secret);
-      } else {
-        throw e;
-      }
-    }
-  }
-
   async getSecretsByPattern(pattern: string, namespace: string) {
     // Get all secrets in the namespace
     const secrets = await this.k8sApi.listNamespacedSecret(namespace);
@@ -150,7 +118,7 @@ export class K8sAPI {
     return matchingSecrets;
   }
 
-  async createOrUpdateSecretFromJSON(
+  async createOrUpdateSecret(
     secretName: string,
     namespace: string,
     secretData: Record<string, string>

@@ -121,8 +121,6 @@ export class OIDCConfig {
     this.client_secret = json.client_secret;
     if (json.scopes) {
       this.scopes = json.scopes;
-    } else {
-      this.scopes = [];
     }
 
     if ("cookie_name_prefix" in json) {

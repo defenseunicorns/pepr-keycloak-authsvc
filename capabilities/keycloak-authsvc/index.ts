@@ -9,6 +9,10 @@ export const KeycloakAuthSvc = new Capability({
   namespaces: [],
 });
 
+// TODO:
+// 1. find a better way to dervive the keycloak base url
+// 2. add a workflow for deleting a client
+
 const keycloakBaseUrl = "https://keycloak.bigbang.dev/auth";
 
 const { When } = KeycloakAuthSvc;
@@ -57,6 +61,7 @@ When(a.ConfigMap)
 /* demo to create the client secret
 kubectl create secret generic configclient -n podinfo --from-literal=realm=cocowow --from-literal=id=podinfo --from-literal=name=podinfo --from-literal=domain=bigbang.dev
 kubectl label secret configclient -n podinfo  todo=createclient
+
 */
 // CreateClient
 When(a.Secret)
@@ -90,20 +95,32 @@ When(a.Secret)
       };
 
       const k8sApi = new K8sAPI();
-      await k8sApi.createOrUpdateSecretFromJSON(
+      await k8sApi.createOrUpdateSecret(
         `mission-${name}`,
         "authservice",
         newSecret
       );
-
-      const authserviceSecretBuilder = new AuthServiceSecretBuilder(k8sApi);
-      await authserviceSecretBuilder.BuildAuthServiceSecret();
-      await k8sApi.restartDeployment("authservice", "authservice");
-
       request.RemoveLabel("todo");
       request.SetLabel("done", "createclient");
     } catch (e) {
       console.log(`error ${e.stack}`);
+    }
+  });
+
+When(a.Secret)
+  .IsCreatedOrUpdated()
+  .InNamespace("authservice")
+  .Then(async request => {
+    if (request.Raw.metadata.name === "authservice") {
+      return;
+    }
+    try {
+      const k8sApi = new K8sAPI();
+      const authserviceSecretBuilder = new AuthServiceSecretBuilder(k8sApi);
+      await authserviceSecretBuilder.buildAuthserviceSecret();
+      await k8sApi.restartDeployment("authservice", "authservice");
+    } catch (e) {
+      console.log(`error ${e}`);
     }
   });
 
