@@ -1,4 +1,4 @@
-import { Capability, PeprRequest, a } from "pepr";
+import { Capability, Log, PeprRequest, a } from "pepr";
 
 import { AuthServiceSecretBuilder } from "./lib/authservice/secretBuilder";
 import { KcAPI } from "./lib/kc-api";
