@@ -5,6 +5,8 @@ import {
   V1Secret,
 } from "@kubernetes/client-node";
 
+import { fetchStatus } from "pepr";
+
 export class K8sAPI {
   k8sApi: CoreV1Api;
   k8sAppsV1Api: AppsV1Api;
@@ -17,14 +19,11 @@ export class K8sAPI {
   }
 
   async getSecretValue(
+    name: string,
     namespace: string,
-    secretName: string,
     key: string
   ): Promise<string> {
-    const response = await this.k8sApi.readNamespacedSecret(
-      secretName,
-      namespace
-    );
+    const response = await this.k8sApi.readNamespacedSecret(name, namespace);
     const secret = response.body.data;
 
     if (secret && secret[key]) {
@@ -32,10 +31,10 @@ export class K8sAPI {
       const decodedValue = Buffer.from(secret[key], "base64").toString("utf-8");
       return decodedValue;
     }
-    throw new Error(`Could not find key '${key}' in the secret ${secretName}`);
+    throw new Error(`Could not find key '${key}' in the secret ${name}`);
   }
 
-  async restartDeployment(namespace: string, deployment: string) {
+  async restartDeployment(name: string, namespace: string) {
     const patch = [
       {
         op: "add",
@@ -45,7 +44,7 @@ export class K8sAPI {
     ];
 
     await this.k8sAppsV1Api.patchNamespacedDeployment(
-      deployment,
+      name,
       namespace,
       patch,
       undefined,
@@ -57,7 +56,7 @@ export class K8sAPI {
     );
   }
 
-  async restartStatefulset(namespace: string, deployment: string) {
+  async restartStatefulset(name: string, namespace: string) {
     const patch = [
       {
         op: "add",
@@ -66,7 +65,7 @@ export class K8sAPI {
       },
     ];
     await this.k8sAppsV1Api.patchNamespacedStatefulSet(
-      deployment,
+      name,
       namespace,
       patch,
       undefined,
@@ -79,7 +78,7 @@ export class K8sAPI {
   }
 
   // the module does own this.
-  async patchDeploymentForKeycloak(namespace: string, deployment: string) {
+  async patchDeploymentForKeycloak(name: string, namespace: string) {
     const patch = [
       {
         op: "add",
@@ -88,7 +87,7 @@ export class K8sAPI {
       },
     ];
     await this.k8sAppsV1Api.patchNamespacedDeployment(
-      deployment,
+      name,
       namespace,
       patch,
       undefined,
@@ -119,7 +118,7 @@ export class K8sAPI {
   }
 
   async createOrUpdateSecret(
-    secretName: string,
+    name: string,
     namespace: string,
     secretData: Record<string, string>
   ) {
@@ -128,7 +127,7 @@ export class K8sAPI {
       apiVersion: "v1",
       kind: "Secret",
       metadata: {
-        name: secretName,
+        name: name,
         namespace: namespace,
       },
       data: {},
@@ -141,12 +140,12 @@ export class K8sAPI {
 
     try {
       // Check if the Secret exists
-      await this.k8sApi.readNamespacedSecret(secretName, namespace);
+      await this.k8sApi.readNamespacedSecret(name, namespace);
 
       // If the Secret exists, update it
-      await this.k8sApi.replaceNamespacedSecret(secretName, namespace, secret);
+      await this.k8sApi.replaceNamespacedSecret(name, namespace, secret);
     } catch (e) {
-      if (e.response && e.response.statusCode === 404) {
+      if (e.response && e.response.statusCode === fetchStatus.NOT_FOUND) {
         // If the Secret doesn't exist, create it
         await this.k8sApi.createNamespacedSecret(namespace, secret);
       } else {

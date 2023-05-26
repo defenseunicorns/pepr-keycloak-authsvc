@@ -1,6 +1,6 @@
 import KeycloakAdminClient from "@keycloak/keycloak-admin-client";
 import { K8sAPI } from "./kubernetes-api";
-import { fetch } from "pepr";
+import { fetch, fetchStatus } from "pepr";
 
 export interface Client {
   clientId: string;
@@ -41,14 +41,14 @@ export class KcAPI {
 
     this.k8sApi = new K8sAPI();
     this.password = await this.k8sApi.getSecretValue(
-      namespace,
       name,
+      namespace,
       "KEYCLOAK_ADMIN_PASSWORD"
     );
 
     this.username = await this.k8sApi.getSecretValue(
-      namespace,
       name,
+      namespace,
       "KEYCLOAK_ADMIN"
     );
 
@@ -74,7 +74,7 @@ export class KcAPI {
         return true;
       }
     } catch (error) {
-      if (error.response && error.response.status === 404) {
+      if (error.response && error.response.status === fetchStatus.NOT_FOUND) {
         // realm not found, will create it
       } else {
         throw error;

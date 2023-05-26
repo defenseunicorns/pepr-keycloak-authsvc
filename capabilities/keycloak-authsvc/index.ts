@@ -1,4 +1,4 @@
-import { Capability, PeprRequest, a } from "pepr";
+import { Capability, Log, PeprRequest, a } from "pepr";
 import { KcAPI } from "./lib/kc-api";
 import { AuthServiceSecretBuilder } from "./lib/authservice/secretBuilder";
 import { K8sAPI } from "./lib/kubernetes-api";
@@ -53,7 +53,7 @@ When(a.ConfigMap)
       request.RemoveLabel("todo");
       request.SetLabel("done", "created");
     } catch (e) {
-      console.log(`error ${e}`);
+      Log.error(`error ${e}`);
       request.SetLabel("error", e.message);
     }
   });
@@ -103,7 +103,7 @@ When(a.Secret)
       request.RemoveLabel("todo");
       request.SetLabel("done", "createclient");
     } catch (e) {
-      console.log(`error ${e.stack}`);
+      Log.error(`error ${e.stack}`);
     }
   });
 
@@ -120,7 +120,7 @@ When(a.Secret)
       await authserviceSecretBuilder.buildAuthserviceSecret();
       await k8sApi.restartDeployment("authservice", "authservice");
     } catch (e) {
-      console.log(`error ${e}`);
+      Log.error(`error ${e}`);
     }
   });
 
