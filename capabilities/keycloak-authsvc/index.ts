@@ -9,20 +9,16 @@ export const KeycloakAuthSvc = new Capability({
   namespaces: [],
 });
 
-// TODO:
-// 1. find a better way to dervive the keycloak base url
-// 2. add a workflow for deleting a client
-
-const keycloakBaseUrl = "https://keycloak.bigbang.dev/auth";
+// TODO: add a workflow for deleting a client
 
 const { When } = KeycloakAuthSvc;
 
-//
-/* Demo steps
-kubectl create secret generic configrealm -n keycloak --from-literal=realm=demo --from-literal=domain=bigbang.dev
-kubectl label secret configrealm -n keycloak  todo=createrealm
+// Create a realm from a generic secret:
+/* 
+Demo steps
+    kubectl create secret generic configrealm -n keycloak --from-literal=realm=demo --from-literal=domain=bigbang.dev
+    kubectl label secret configrealm -n keycloak  todo=createrealm
 */
-// CreateRealm from a secret,
 When(a.Secret)
   .IsCreatedOrUpdated()
   .InNamespace("keycloak")
@@ -30,16 +26,20 @@ When(a.Secret)
   .WithLabel("todo", "createrealm")
   .Then(async request => {
     const realm = getVal(request, "realm");
+    const domain = getVal(request, "domain");
+
+    const keycloakBaseUrl = `https://keycloak.${domain}/auth`;
     const kcAPI = new KcAPI(keycloakBaseUrl);
     await kcAPI.GetOrCreateRealm(realm);
     request.RemoveLabel("todo");
     request.SetLabel("done", "created");
   });
 
-// import a realm from a configmap,
-/* Demo steps
-kubectl create cm configrealm -n podinfo --from-file=realmJson
-kubectl label cm configrealm -n podinfo  todo=createrealm
+// Import a realm from a configmap
+/* 
+Example steps:
+    kubectl create cm configrealm -n podinfo --from-file=realmJson --from-literal=domain=bigbang.dev
+    kubectl label cm configrealm -n podinfo  todo=createrealm
 */
 When(a.ConfigMap)
   .IsCreatedOrUpdated()
@@ -48,6 +48,9 @@ When(a.ConfigMap)
   .WithLabel("todo", "createrealm")
   .Then(async request => {
     try {
+      const domain = request.Raw.data.domain;
+      const keycloakBaseUrl = `https://keycloak.${domain}/auth`;
+
       const kcAPI = new KcAPI(keycloakBaseUrl);
       await kcAPI.ImportRealm(request.Raw.data.realmJson);
       request.RemoveLabel("todo");
@@ -58,12 +61,12 @@ When(a.ConfigMap)
     }
   });
 
-/* demo to create the client secret
-kubectl create secret generic configclient -n podinfo --from-literal=realm=cocowow --from-literal=id=podinfo --from-literal=name=podinfo --from-literal=domain=bigbang.dev
-kubectl label secret configclient -n podinfo  todo=createclient
-
+// Create a client secret
+/* 
+Example steps:
+    kubectl create secret generic configclient -n podinfo --from-literal=realm=cocowow --from-literal=id=podinfo --from-literal=name=podinfo --from-literal=domain=bigbang.dev
+    kubectl label secret configclient -n podinfo  todo=createclient
 */
-// CreateClient
 When(a.Secret)
   .IsCreatedOrUpdated()
   .WithName("configclient")
@@ -74,6 +77,8 @@ When(a.Secret)
       const id = getVal(request, "id");
       const name = getVal(request, "name");
       const domain = getVal(request, "domain");
+
+      const keycloakBaseUrl = `https://keycloak.${domain}/auth`;
 
       // have keycloak generate the new client and return the secret
       const kcAPI = new KcAPI(keycloakBaseUrl);
@@ -107,6 +112,7 @@ When(a.Secret)
     }
   });
 
+// Update the authservice secret (triggers from previous capability)
 When(a.Secret)
   .IsCreatedOrUpdated()
   .InNamespace("authservice")
@@ -124,6 +130,7 @@ When(a.Secret)
     }
   });
 
+// Obsolete soon
 function getVal(request: PeprRequest<a.Secret>, p: string): string {
   if (request.Raw.data && request.Raw.data[p]) {
     return Buffer.from(request.Raw.data[p], "base64").toString("utf-8");

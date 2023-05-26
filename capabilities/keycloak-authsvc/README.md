@@ -8,7 +8,7 @@ The installation must be complete for keycloak, authservice and istio. It's best
 
 ### Keycloak setup:
 
-1. Must be resolvable via https://keycloak.bigbang.dev (or whatever domain you setup) inside the cluster, authservice requires TLS even with MTLS.
+1. Must be resolvable via https://keycloak.${domain} (or whatever domain you setup) inside the cluster, authservice requires TLS even with MTLS.
 2. The admin user and password must be stored in a secret in namespace `keycloak`, object `keycloak-env`
 3. pepr does not need special access to this namespace beyond the mutating webhook.
 
@@ -38,13 +38,13 @@ If the realm is not created, there are two ways to create a realm (the realm can
 
 ```
     kubectl create secret generic configrealm -n keycloak --from-literal=realm=demo --from-literal=domain=bigbang.dev
-    kubectl label secret configrealm -n keycloak  todo=createrealm
+    kubectl label secret configrealm -n keycloak todo=createrealm
 ```
 
 2. From a configmap export, A realm exported with keycloak's UI, can be imported in this method. Recommended to not export the clients. In this case all the realm info will be imported. Any clients that are in this import will be ignored, and it's recommended to remove them to keep this export smaller, and more flexible. `Keycloak's database enforces some primary key issues, so importing more than one realm by modifying the realm name in the import is not recommended.`
 
 ```
-kubectl create cm configrealm -n podinfo --from-file=realmJson
+kubectl create cm configrealm -n podinfo --from-file=realmJson --from-literal=domain=bigbang.dev
 kubectl label cm configrealm -n podinfo  todo=createrealm
 ```
 
