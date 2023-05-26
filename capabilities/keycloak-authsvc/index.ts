@@ -1,6 +1,7 @@
-import { Capability, Log, PeprRequest, a } from "pepr";
-import { KcAPI } from "./lib/kc-api";
+import { Capability, PeprRequest, a } from "pepr";
+
 import { AuthServiceSecretBuilder } from "./lib/authservice/secretBuilder";
+import { KcAPI } from "./lib/kc-api";
 import { K8sAPI } from "./lib/kubernetes-api";
 
 export const KeycloakAuthSvc = new Capability({
