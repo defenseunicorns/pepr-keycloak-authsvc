@@ -2,7 +2,8 @@
   "compilerOptions": {
     "esModuleInterop": true,
     "lib": [
-      "ES2022"
+      "ES2022",
+      "dom"
     ],
     "module": "CommonJS",
     "moduleResolution": "node",

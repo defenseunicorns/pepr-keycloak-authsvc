@@ -1,12 +1,7 @@
 {
   "name": "@pepr/capabilities",
-  "license": "Apache-2.0",
-  "repository": "defenseunicorns/pepr-capabilities",
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "version": "0.0.0-development",
-  "description": "Collection of different capabilities you can import into your Pepr Module.",
+  "version": "0.0.1",
+  "description": "",
   "keywords": [
     "pepr",
     "k8s",
@@ -14,8 +9,6 @@
     "pepr-module",
     "security"
   ],
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
   "pepr": {
     "name": "Pepr Capabilities",
     "uuid": "e4a35052-c138-55e4-94a7-bb942b1cddc7",
@@ -26,36 +19,23 @@
     }
   },
   "scripts": {
-    "build": "rm -fr dist && tsc -p tsconfig.build.json && node build.mjs",
-    "k3d-setup": "k3d cluster delete pepr-dev && k3d cluster create pepr-dev --k3s-arg '--debug@server:0' -p '443:443@loadbalancer' -p '80:80@loadbalancer' --k3s-arg='--disable=traefik@server:0'",
-    "zarf": "zarf package create --confirm && zarf package deploy zarf-package-pepr-keycloak-demo-*.tar.zst --confirm",
+    "k3d-setup": "k3d cluster delete pepr-dev && k3d cluster create pepr-dev --k3s-arg '--debug@server:0'",
+    "build": "pepr build",
+    "deploy": "pepr deploy",
     "start": "pepr dev",
     "test": "ava",
     "format:check": "eslint capabilities && prettier capabilities --check",
     "format:fix": "eslint capabilities --fix && prettier capabilities --write"
   },
   "dependencies": {
-    "@keycloak/keycloak-admin-client": "18.0.2",
+    "@keycloak/keycloak-admin-client": "21.1.1",
+    "@typescript-eslint/eslint-plugin": "^5.59.8",
+    "eslint": "^8.41.0",
     "pepr": "^0.4.2"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "5.59.0",
-    "@typescript-eslint/parser": "5.59.2",
-    "ava": "5.2.0",
-    "esbuild": "^0.17.19",
-    "eslint": "8.40.0",
+    "ava": "^5.3.0",
     "prettier": "2.8.8",
-    "ts-node": "10.9.1",
     "typescript": "5.0.4"
-  },
-  "ava": {
-    "extensions": [
-      "ts"
-    ],
-    "require": [
-      "ts-node/register"
-    ],
-    "failFast": true,
-    "verbose": true
   }
 }
