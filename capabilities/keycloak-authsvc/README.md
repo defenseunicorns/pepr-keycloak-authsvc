@@ -79,7 +79,10 @@ This performs several tasks:
 
 ## Deployment
 
-TBD
+Pre-reqs:
+1. istio + gateway + authservice + keycloak + resolvable domain
+
+TODO: a single yaml file that will setup podinfo, the virtual service, 
 
 ### How to deploy this module
 
