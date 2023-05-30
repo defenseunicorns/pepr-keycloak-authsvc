@@ -14,3 +14,4 @@ pepr.ts
 hello-pepr*
 *.tgz
 dist/pepr*
+dist/zarf.yaml
