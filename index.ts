@@ -1,3 +1,3 @@
-import { Keycloak } from "./capabilities/keycloak";
+import { KeycloakAuthSvc } from "./capabilities/keycloak-authsvc";
 
-export { Keycloak };
+export { KeycloakAuthSvc };

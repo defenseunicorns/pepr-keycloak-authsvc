@@ -10,7 +10,7 @@ Because this is typescript, you can organize this however you choose, e.g. creat
 per-capability or common logic in shared files or folders.
 
 Example Structure:
-
+ 
 ```
 Module Root
 ├── package.json
