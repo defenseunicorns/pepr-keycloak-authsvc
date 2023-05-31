@@ -1,4 +1,3 @@
-import KeycloakAdminClient from "@keycloak/keycloak-admin-client";
 import { K8sAPI } from "./kubernetes-api";
 import { fetch, fetchStatus } from "pepr";
 
@@ -19,117 +18,96 @@ export interface OpenIdData {
 
 export class KcAPI {
   keycloakBaseUrl: string;
-  init: boolean;
-  client: KeycloakAdminClient;
-  password: string;
-  username: string;
+  token: string;
   k8sApi: K8sAPI;
 
   constructor(keycloakBaseUrl: string) {
     this.keycloakBaseUrl = keycloakBaseUrl;
-    this.init = false;
   }
 
   private async connect() {
-    if (this.init == true) {
+    if (this.token) {
       return;
     }
 
-    // XXX: BDW: hard coded.
+    // XXX: BDW: hard coded, but this is where it's stored in bigbang.
+    // TODO: extract this to config
     const namespace = "keycloak";
     const name = "keycloak-env";
 
     this.k8sApi = new K8sAPI();
-    this.password = await this.k8sApi.getSecretValue(
-      name,
-      namespace,
-      "KEYCLOAK_ADMIN_PASSWORD"
+    const creds = await this.k8sApi.getSecretValues(name, namespace, [
+      "KEYCLOAK_ADMIN_PASSWORD",
+      "KEYCLOAK_ADMIN",
+    ]);
+
+    const username = creds["KEYCLOAK_ADMIN"];
+    const password = creds["KEYCLOAK_ADMIN_PASSWORD"];
+
+    interface accessToken {
+      access_token: string;
+    }
+
+    const response = await fetch<accessToken>(
+      `${this.keycloakBaseUrl}/realms/master/protocol/openid-connect/token`,
+      {
+        method: "POST",
+        body: `username=${username}&password=${password}&grant_type=password&client_id=admin-cli`,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      }
     );
 
-    this.username = await this.k8sApi.getSecretValue(
-      name,
-      namespace,
-      "KEYCLOAK_ADMIN"
-    );
+    if (!response.ok) {
+      throw new Error(`Failed to authenticate as admin`);
+    }
 
-    // XXX: BDW: todo: test with multiple types of keycloak deployments.
-    this.client = new KeycloakAdminClient({ baseUrl: this.keycloakBaseUrl });
-    await this.client.auth({
-      username: this.username,
-      password: this.password,
-      grantType: "password",
-      clientId: "admin-cli",
-    });
-    this.init = true;
+    this.token = response.data.access_token;
   }
 
   async GetOrCreateRealm(realmName: string): Promise<boolean> {
     await this.connect();
 
-    try {
-      const isFound = await this.client.realms.findOne({
+    const response = await fetch(
+      `${this.keycloakBaseUrl}/admin/realms/${realmName}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+        },
+      }
+    );
+
+    if (response.ok) {
+      return true;
+    } else if (response.status === fetchStatus.NOT_FOUND) {
+      const realm = {
+        id: realmName,
         realm: realmName,
-      });
-      if (isFound) {
-        return true;
+        enabled: true,
+      };
+
+      const createResponse = await fetch(
+        `${this.keycloakBaseUrl}/admin/realms`,
+        {
+          method: "POST",
+          body: JSON.stringify(realm),
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!createResponse.ok) {
+        throw new Error(`Failed to create realm ${realmName}`);
       }
-    } catch (error) {
-      if (error.response && error.response.status === fetchStatus.NOT_FOUND) {
-        // realm not found, will create it
-      } else {
-        throw error;
-      }
+
+      return true;
+    } else {
+      throw new Error(`Failed to get realm ${realmName}`);
     }
-
-    // use the same realmName and realmId
-    const realm = await this.client.realms.create({
-      id: realmName,
-      realm: realmName,
-      enabled: true,
-    });
-
-    if (realm.realmName != realmName) {
-      throw new Error(`realm ${realmName} was not created as expected`);
-    }
-    return true;
-  }
-
-  async GetOrCreateClient(
-    realmName: string,
-    clientName: string,
-    clientId: string,
-    redirectUri: string
-  ): Promise<string> {
-    await this.connect();
-
-    // Find client by clientId
-    const clients = await this.client.clients.find({
-      realm: realmName,
-      clientId: clientId,
-    });
-
-    if (clients.length > 1) {
-      throw new Error(`Found more than one client with clientId ${clientId}`);
-    }
-
-    if (clients.length === 1) {
-      return clients[0].secret;
-    }
-
-    // Otherwise, create a new client
-    const newClient = {
-      clientId: clientId,
-      name: clientName,
-      realm: realmName,
-      redirectUris: [redirectUri],
-      // Add other client settings here, such as "protocol", "publicClient", etc.
-    };
-
-    await this.client.clients.create(newClient);
-
-    // Find and return the newly created client
-    const newClientsForSecret = await this.client.clients.find(newClient);
-    return newClientsForSecret[0].secret;
   }
 
   async GetOpenIdData(realmName: string): Promise<OpenIdData> {
@@ -146,29 +124,109 @@ export class KcAPI {
 
   async ImportRealm(realm: string) {
     await this.connect();
-    // TODO: can I convert to realm represetnation or let the API call fail?
-    await this.client.realms.create(JSON.parse(realm));
+
+    const realmObject = JSON.parse(realm);
+    const response = await fetch(`${this.keycloakBaseUrl}/admin/realms`, {
+      method: "POST",
+      body: JSON.stringify(realmObject),
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to import realm ${realmObject.realm}`);
+    }
   }
 
-  async GetClientsInRealm(realmName: string): Promise<Client[]> {
+  private async GetClientSecret(
+    realmName: string,
+    clientName: string,
+    clientId: string
+  ): Promise<string> {
     await this.connect();
-    const realm = await this.client.realms.findOne({ realm: realmName });
+    interface clientData {
+      clientId: string;
+      secret: string;
+    }
+    await this.connect();
+    const response = await fetch<clientData[]>(
+      `${this.keycloakBaseUrl}/admin/realms/${realmName}/clients?clientId=${clientId}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+        },
+      }
+    );
 
-    if (!realm) {
-      throw new Error(`Realm ${realmName} not found`);
+    if (!response.ok) {
+      if (response.status === fetchStatus.NOT_FOUND) {
+        return undefined;
+      } else {
+        throw new Error(`Failed to get client with clientId ${clientId}`);
+      }
     }
 
-    // Fetch clients in the realm
-    const clients = await this.client.clients.find({ realm: realmName });
+    const clients = response.data;
 
-    // Map the response to the Client interface
-    const typedClients = clients.map(client => ({
-      clientId: client.clientId,
-      clientName: client.name,
-      clientSecret: client.secret,
-      redirectUri: client.redirectUris,
-    }));
+    if (clients.length > 1) {
+      throw new Error(`Found more than one client with clientId ${clientId}`);
+    }
 
-    return typedClients;
+    if (clients.length === 1) {
+      return clients[0].secret;
+    }
+    return undefined;
+  }
+
+  async GetOrCreateClient(
+    realmName: string,
+    clientName: string,
+    clientId: string,
+    redirectUri: string
+  ): Promise<string> {
+    await this.connect();
+
+    const secret = await this.GetClientSecret(realmName, clientName, clientId);
+    if (secret) {
+      return secret;
+    }
+
+    // Otherwise, create a new client
+    await this.CreateClient(clientId, clientName, redirectUri, realmName);
+
+    //
+    return await this.GetClientSecret(realmName, clientName, clientId);
+  }
+
+  private async CreateClient(
+    clientId: string,
+    clientName: string,
+    redirectUri: string,
+    realmName: string
+  ) {
+    const newClient = {
+      clientId: clientId,
+      name: clientName,
+      redirectUris: [redirectUri],
+    };
+
+    const response = await fetch(
+      `${this.keycloakBaseUrl}/admin/realms/${realmName}/clients`,
+      {
+        method: "POST",
+        body: JSON.stringify(newClient),
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to create client with clientId ${clientId}`);
+    }
   }
 }
