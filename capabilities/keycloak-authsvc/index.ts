@@ -113,7 +113,7 @@ When(a.Secret)
     }
   });
 
-// temporary unitl we can have a post persisted builder
+// temporary until we can have a post persisted builder
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
