@@ -20,7 +20,7 @@ jobs:
           node-version: latest
           cache: "npm"
       - run: npm ci
-      - run: npm run format:check
+      - run: npx pepr format -v
 
   e2e:
     runs-on: ubuntu-latest
