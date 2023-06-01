@@ -26,8 +26,8 @@ When(a.Secret)
   .WithName("configrealm")
   .WithLabel("todo", "createrealm")
   .Then(async request => {
-    const realm = getVal(request, "realm");
-    const domain = getVal(request, "domain");
+    const realm = request.Raw.data.realm;
+    const domain = request.Raw.data.domain;
 
     const keycloakBaseUrl = `https://keycloak.${domain}/auth`;
     const kcAPI = new KcAPI(keycloakBaseUrl);
@@ -74,10 +74,10 @@ When(a.Secret)
   .WithLabel("todo", "createclient")
   .Then(async request => {
     try {
-      const realm = getVal(request, "realm");
-      const id = getVal(request, "id");
-      const name = getVal(request, "name");
-      const domain = getVal(request, "domain");
+      const realm = request.Raw.data.realm;
+      const id = request.Raw.data.id;
+      const name = request.Raw.data.name;
+      const domain = request.Raw.data.domain;
 
       const keycloakBaseUrl = `https://keycloak.${domain}/auth`;
 
@@ -139,11 +139,3 @@ When(a.Secret)
       Log.error(`error ${e}`);
     }
   });
-
-// Obsolete soon
-function getVal(request: PeprRequest<a.Secret>, p: string): string {
-  if (request.Raw.data && request.Raw.data[p]) {
-    return Buffer.from(request.Raw.data[p], "base64").toString("utf-8");
-  }
-  throw new Error(`${p} not in the secret`);
-}
