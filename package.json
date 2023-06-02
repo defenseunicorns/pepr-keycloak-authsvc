@@ -19,13 +19,13 @@
     }
   },
   "scripts": {
-    "build": "rm -fr dist && pepr build -e index.ts",
+    "build": "rm -fr dist && pepr build",
     "k3d-setup": "k3d cluster delete pepr-dev && k3d cluster create pepr-dev --k3s-arg '--debug@server:0' -p '443:443@loadbalancer' -p '80:80@loadbalancer' --k3s-arg='--disable=traefik@server:0'",
     "start": "pepr dev",
     "test": "ava"
   },
   "dependencies": {
-    "pepr": "0.5.0"
+    "pepr": "^0.6.0"
   },
   "devDependencies": {
     "ava": "5.3.0",
