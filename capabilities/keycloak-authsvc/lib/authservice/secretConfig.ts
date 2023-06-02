@@ -140,6 +140,7 @@ export interface ChainInput {
   hostname: string;
   redirect_uri: string;
   secret: string;
+  id: string;
 }
 
 export class AuthserviceConfig {
@@ -177,7 +178,7 @@ export class AuthserviceConfig {
   static createSingleChain(input: ChainInput): FilterChain {
     const oidcConfig = new OIDCConfig({
       callback_uri: input.redirect_uri,
-      client_id: input.name,
+      client_id: input.id,
       client_secret: input.secret,
       cookie_name_prefix: input.name,
     });

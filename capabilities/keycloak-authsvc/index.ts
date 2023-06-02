@@ -83,7 +83,7 @@ When(a.Secret)
 
       // have keycloak generate the new client and return the secret
       const kcAPI = new KcAPI(keycloakBaseUrl);
-      const redirectUri = `https://${id}.${domain}/login`;
+      const redirectUri = `https://${name}.${domain}/login`;
       const clientSecret = await kcAPI.GetOrCreateClient(
         realm,
         name,
