@@ -18,20 +18,30 @@ export class K8sAPI {
     this.k8sAppsV1Api = kc.makeApiClient(AppsV1Api);
   }
 
-  async getSecretValue(
+  async getSecretValues(
     name: string,
     namespace: string,
-    key: string
-  ): Promise<string> {
+    keys: string[]
+  ): Promise<{ [key: string]: string }> {
     const response = await this.k8sApi.readNamespacedSecret(name, namespace);
     const secret = response.body.data;
+    const secretValues: { [key: string]: string } = {};
 
-    if (secret && secret[key]) {
-      // Decode the base64 encoded secret value
-      const decodedValue = Buffer.from(secret[key], "base64").toString("utf-8");
-      return decodedValue;
+    if (secret) {
+      keys.forEach(key => {
+        if (secret[key]) {
+          // Decode the base64 encoded secret value
+          const decodedValue = Buffer.from(secret[key], "base64").toString(
+            "utf-8"
+          );
+          secretValues[key] = decodedValue;
+        } else {
+          throw new Error(`Could not find key '${key}' in the secret ${name}`);
+        }
+      });
+      return secretValues;
     }
-    throw new Error(`Could not find key '${key}' in the secret ${name}`);
+    throw new Error(`Could not retrieve the secret ${name}`);
   }
 
   async restartDeployment(name: string, namespace: string) {
@@ -43,49 +53,6 @@ export class K8sAPI {
       },
     ];
 
-    await this.k8sAppsV1Api.patchNamespacedDeployment(
-      name,
-      namespace,
-      patch,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      { headers: { "content-type": "application/json-patch+json" } }
-    );
-  }
-
-  async restartStatefulset(name: string, namespace: string) {
-    const patch = [
-      {
-        op: "add",
-        path: "/spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt",
-        value: new Date().toISOString(),
-      },
-    ];
-    await this.k8sAppsV1Api.patchNamespacedStatefulSet(
-      name,
-      namespace,
-      patch,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      { headers: { "content-type": "application/json-patch+json" } }
-    );
-  }
-
-  // the module does own this.
-  async patchDeploymentForKeycloak(name: string, namespace: string) {
-    const patch = [
-      {
-        op: "add",
-        path: "/spec/template/metadata/labels/protect",
-        value: "keycloak",
-      },
-    ];
     await this.k8sAppsV1Api.patchNamespacedDeployment(
       name,
       namespace,

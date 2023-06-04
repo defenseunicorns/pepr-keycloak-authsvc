@@ -24,12 +24,14 @@ export class AuthServiceSecretBuilder {
   }
 
   async getAuthServiceSecret(): Promise<AuthserviceConfig> {
-    const configRaw = await this.k8sApi.getSecretValue(
+    const secretData = await this.k8sApi.getSecretValues(
       this.authServiceSecretName,
       this.authServiceNamespace,
-      this.authServiceConfigFileName
+      [this.authServiceConfigFileName]
     );
-    return new AuthserviceConfig(JSON.parse(configRaw));
+    return new AuthserviceConfig(
+      JSON.parse(secretData[this.authServiceConfigFileName])
+    );
   }
 
   async buildAuthserviceSecret() {

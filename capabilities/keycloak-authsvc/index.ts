@@ -1,4 +1,4 @@
-import { Capability, Log, PeprRequest, a } from "pepr";
+import { Capability, Log, a } from "pepr";
 
 import { AuthServiceSecretBuilder } from "./lib/authservice/secretBuilder";
 import { KcAPI } from "./lib/kc-api";
@@ -26,8 +26,8 @@ When(a.Secret)
   .WithName("configrealm")
   .WithLabel("todo", "createrealm")
   .Then(async request => {
-    const realm = getVal(request, "realm");
-    const domain = getVal(request, "domain");
+    const realm = request.Raw.data.realm;
+    const domain = request.Raw.data.domain;
 
     const keycloakBaseUrl = `https://keycloak.${domain}/auth`;
     const kcAPI = new KcAPI(keycloakBaseUrl);
@@ -74,10 +74,10 @@ When(a.Secret)
   .WithLabel("todo", "createclient")
   .Then(async request => {
     try {
-      const realm = getVal(request, "realm");
-      const id = getVal(request, "id");
-      const name = getVal(request, "name");
-      const domain = getVal(request, "domain");
+      const realm = request.Raw.data.realm;
+      const id = request.Raw.data.id;
+      const name = request.Raw.data.name;
+      const domain = request.Raw.data.domain;
 
       const keycloakBaseUrl = `https://keycloak.${domain}/auth`;
 
@@ -113,6 +113,10 @@ When(a.Secret)
     }
   });
 
+// temporary until we can have a post persisted builder
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 // Update the authservice secret (triggers from previous capability)
 When(a.Secret)
   .IsCreatedOrUpdated()
@@ -124,17 +128,14 @@ When(a.Secret)
     try {
       const k8sApi = new K8sAPI();
       const authserviceSecretBuilder = new AuthServiceSecretBuilder(k8sApi);
-      await authserviceSecretBuilder.buildAuthserviceSecret();
-      await k8sApi.restartDeployment("authservice", "authservice");
+      // XXX: BDW: TODO: remove once we have a post persisted builder
+      setImmediate(async () => {
+        // waiting 5 seconds for the previous objects to be created.
+        await delay(5000);
+        await authserviceSecretBuilder.buildAuthserviceSecret();
+        await k8sApi.restartDeployment("authservice", "authservice");
+      });
     } catch (e) {
       Log.error(`error ${e}`);
     }
   });
-
-// Obsolete soon
-function getVal(request: PeprRequest<a.Secret>, p: string): string {
-  if (request.Raw.data && request.Raw.data[p]) {
-    return Buffer.from(request.Raw.data[p], "base64").toString("utf-8");
-  }
-  throw new Error(`${p} not in the secret`);
-}
