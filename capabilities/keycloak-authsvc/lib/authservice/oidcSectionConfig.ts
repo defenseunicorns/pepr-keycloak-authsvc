@@ -4,7 +4,7 @@ export class IdTokenConfig {
 
   toObject(): Record<string, any> {
     return {
-      header: this?.preamble,
+      header: this?.header,
       preamble: this?.preamble,
     };
   }
@@ -20,7 +20,7 @@ export class AccessTokenConfig {
   }
 }
 
-class RedisConfig {
+export class RedisConfig {
   server_uri: string;
 
   constructor(json?: any) {
