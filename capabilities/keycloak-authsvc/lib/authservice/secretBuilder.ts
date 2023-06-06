@@ -47,8 +47,10 @@ export class AuthServiceSecretBuilder {
     authserviceConfig.chains = missionSecrets.map(secret => {
       const name = this.decodeBase64(secret, "name");
       const domain = this.decodeBase64(secret, "domain");
+      const id = this.decodeBase64(secret, "id");
       return AuthserviceConfig.createSingleChain({
-        name: name,
+        id,
+        name,
         hostname: `${name}.${domain}`,
         redirect_uri: this.decodeBase64(secret, "redirect_uri"),
         secret: this.decodeBase64(secret, "secret"),
