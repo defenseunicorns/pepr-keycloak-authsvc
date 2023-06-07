@@ -4,6 +4,7 @@ import { OIDCConfig } from "./oidcSectionConfig";
 
 test("AuthserviceConfig should handle input correctly", t => {
   const chainInput: ChainInput = {
+    id: "test",
     name: "test",
     hostname: "test.hostname",
     redirect_uri: "http://localhost:8080",
