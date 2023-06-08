@@ -1,16 +1,29 @@
 {
-  "name": "@pepr/capabilities",
+  "name": "@pepr/keycloak-authsvc",
+  "license": "Apache-2.0",
+  "repository": "defenseunicorns/pepr-keycloak-authsvc",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "version": "0.0.0-development",
-  "description": "",
+  "description": "This capability is designed to automate the manual steps required to integrate new applications into Big Bang.",
   "keywords": [
     "pepr",
     "k8s",
     "policy-engine",
     "pepr-module",
-    "security"
+    "security",
+    "keycloak",
+    "big-bang",
+    "istio",
+    "authsvc",
+    "identity",
+    "sso",
+    "idam"
   ],
+  "main": "dist/index.js",
   "pepr": {
-    "name": "Pepr Capabilities",
+    "name": "Keycloak Authsvc",
     "uuid": "e4a35052-c138-55e4-94a7-bb942b1cddc7",
     "onError": "ignore",
     "alwaysIgnore": {
@@ -21,7 +34,6 @@
   "scripts": {
     "build": "rm -fr dist && pepr build -e index.ts",
     "k3d-setup": "k3d cluster delete pepr-dev && k3d cluster create pepr-dev --k3s-arg '--debug@server:0' -p '443:443@loadbalancer' -p '80:80@loadbalancer' --k3s-arg='--disable=traefik@server:0'",
-    "start": "pepr dev",
     "test": "ava"
   },
   "dependencies": {
