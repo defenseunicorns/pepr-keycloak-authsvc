@@ -1,10 +1,8 @@
 import { Capability, Log, a } from "pepr";
 
-import { AuthServiceSecretBuilder } from "./lib/authservice/secretBuilder";
 import { KcAPI } from "./lib/kc-api";
-import { K8sAPI } from "./lib/kubernetes-api";
 
-export const KeycloakAuthSvc = new Capability({
+export const Keycloak = new Capability({
   name: "keycloak-authsvc",
   description: "Simple example to configure keycloak realm and clientid",
   namespaces: [],
@@ -12,7 +10,7 @@ export const KeycloakAuthSvc = new Capability({
 
 // TODO: add a workflow for deleting a client
 
-const { When } = KeycloakAuthSvc;
+const { When } = Keycloak;
 
 // Create a realm from a generic secret:
 /* 
@@ -91,51 +89,11 @@ When(a.Secret)
         redirectUri
       );
 
-      const newSecret = {
-        realm: realm,
-        id: id,
-        name: name,
-        domain: domain,
-        secret: clientSecret,
-        redirect_uri: redirectUri,
-      };
-
-      const k8sApi = new K8sAPI();
-      await k8sApi.createOrUpdateSecret(
-        `mission-${name}`,
-        "authservice",
-        newSecret
-      );
+      request.Raw.data.clientSecret = clientSecret
+      request.Raw.data.redirectUri = redirectUri
       request.RemoveLabel("todo");
       request.SetLabel("done", "createclient");
     } catch (e) {
       Log.error(`error ${e.stack}`);
-    }
-  });
-
-// temporary until we can have a post persisted builder
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-// Update the authservice secret (triggers from previous capability)
-When(a.Secret)
-  .IsCreatedOrUpdated()
-  .InNamespace("authservice")
-  .Then(async request => {
-    if (request.Raw.metadata.name === "authservice") {
-      return;
-    }
-    try {
-      const k8sApi = new K8sAPI();
-      const authserviceSecretBuilder = new AuthServiceSecretBuilder(k8sApi);
-      // XXX: BDW: TODO: remove once we have a post persisted builder
-      setImmediate(async () => {
-        // waiting 5 seconds for the previous objects to be created.
-        await delay(5000);
-        await authserviceSecretBuilder.buildAuthserviceSecret();
-        await k8sApi.restartDeployment("authservice", "authservice");
-      });
-    } catch (e) {
-      Log.error(`error ${e}`);
     }
   });
