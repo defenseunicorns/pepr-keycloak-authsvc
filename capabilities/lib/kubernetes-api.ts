@@ -66,28 +66,21 @@ export class K8sAPI {
     );
   }
 
-  async getSecretsByPattern(pattern: string, namespace: string) {
+  async getSecretsByLabeSelector(labelSelector: string): Promise<V1Secret[]> {
     // Get all secrets in the namespace
-    const secrets = await this.k8sApi.listNamespacedSecret(namespace);
+    const secrets = await this.k8sApi.listSecretForAllNamespaces(null, null, null, labelSelector);
     if (!secrets || !secrets.body || !secrets.body.items) {
       return [];
     }
 
-    // Filter the secrets by the provided pattern
-    const matchingSecrets = secrets.body.items.filter(
-      secret =>
-        secret.metadata &&
-        secret.metadata.name &&
-        secret.metadata.name.startsWith(pattern)
-    );
-
-    return matchingSecrets;
+    return secrets.body.items
   }
 
   async createOrUpdateSecret(
     name: string,
     namespace: string,
-    secretData: Record<string, string>
+    secretData: Record<string, string>,
+    labels?: { [key: string]: string }
   ) {
     // Prepare the Secret object
     const secret: V1Secret = {
@@ -96,6 +89,7 @@ export class K8sAPI {
       metadata: {
         name: name,
         namespace: namespace,
+        labels
       },
       data: {},
     };

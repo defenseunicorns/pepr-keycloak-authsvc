@@ -1,9 +1,11 @@
 import { Capability, Log, a } from "pepr";
 
 import { KcAPI } from "./lib/kc-api";
+import { K8sAPI } from "./lib/kubernetes-api";
+import { OidcClientK8sSecretData } from "./lib/types";
 
 export const Keycloak = new Capability({
-  name: "keycloak-authsvc",
+  name: "Keycloak",
   description: "Simple example to configure keycloak realm and clientid",
   namespaces: [],
 });
@@ -76,12 +78,12 @@ When(a.Secret)
       const id = request.Raw.data.id;
       const name = request.Raw.data.name;
       const domain = request.Raw.data.domain;
+      const redirectUri = request.Raw.data.redirectUri || `https://${name}.${domain}/login`;
 
       const keycloakBaseUrl = `https://keycloak.${domain}/auth`;
 
       // have keycloak generate the new client and return the secret
       const kcAPI = new KcAPI(keycloakBaseUrl);
-      const redirectUri = `https://${name}.${domain}/login`;
       const clientSecret = await kcAPI.GetOrCreateClient(
         realm,
         name,
@@ -89,10 +91,26 @@ When(a.Secret)
         redirectUri
       );
 
-      request.Raw.data.clientSecret = clientSecret
-      request.Raw.data.redirectUri = redirectUri
       request.RemoveLabel("todo");
       request.SetLabel("done", "createclient");
+
+      const newSecret: OidcClientK8sSecretData = {
+        realm: request.Raw.data.realm,
+        id: request.Raw.data.id,
+        name: request.Raw.data.name,
+        domain: request.Raw.data.domain,
+        clientSecret: clientSecret,
+        redirectUri: redirectUri
+      };
+
+      const k8sApi = new K8sAPI();
+      await k8sApi.createOrUpdateSecret(
+        `${newSecret.name}-client`,
+        request.Raw.metadata.namespace,
+        newSecret as unknown as Record<string, string>,
+        { pepr: "oidcconfig" },
+      )
+
     } catch (e) {
       Log.error(`error ${e.stack}`);
     }

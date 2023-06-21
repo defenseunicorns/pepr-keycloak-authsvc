@@ -9,15 +9,6 @@ export const AuthService = new Capability({
   namespaces: [],
 });
 
-interface OidcClientK8sSecretData {
-  realm: string,
-  id: string,
-  name: string,
-  domain: string,
-  secret: string,
-  redirect_uri: string
-}
-
 // TODO: add a workflow for deleting a client
 
 const { When } = AuthService;
@@ -29,24 +20,8 @@ function delay(ms: number): Promise<void> {
 // Update the authservice secret (triggers from previous capability)
 When(a.Secret)
   .IsCreatedOrUpdated()
-  .WithLabel("done", "createclient")
+  .WithLabel("pepr", "oidcconfig")
   .Then(async request => {
-    const newSecret: OidcClientK8sSecretData = {
-      realm: request.Raw.data.realm,
-      id: request.Raw.data.id,
-      name: request.Raw.data.name,
-      domain: request.Raw.data.domain,
-      secret: request.Raw.data.clientSecret,
-      redirect_uri: request.Raw.data.redirectUri
-    };
-
-    const k8sApi = new K8sAPI();
-    await k8sApi.createOrUpdateSecret(
-      `mission-${request.Raw.data.name}`,
-      "authservice",
-      newSecret as unknown as Record<string, string>
-    );
-
     try {
       const k8sApi = new K8sAPI();
       const authserviceSecretBuilder = new AuthServiceSecretBuilder(k8sApi);
@@ -54,7 +29,7 @@ When(a.Secret)
       setImmediate(async () => {
         // waiting 5 seconds for the previous objects to be created.
         await delay(5000);
-        await authserviceSecretBuilder.buildAuthserviceSecret();
+        await authserviceSecretBuilder.buildAuthserviceSecret("pepr=oidcconfig");
         await k8sApi.restartDeployment("authservice", "authservice");
       });
     } catch (e) {

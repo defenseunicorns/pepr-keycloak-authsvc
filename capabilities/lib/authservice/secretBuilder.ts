@@ -34,11 +34,9 @@ export class AuthServiceSecretBuilder {
     );
   }
 
-  async buildAuthserviceSecret() {
-    const missionSecrets = await this.k8sApi.getSecretsByPattern(
-      "mission-",
-      "authservice"
-    );
+  async buildAuthserviceSecret(labelSelector: string) {
+    const missionSecrets = await this.k8sApi.getSecretsByLabeSelector(labelSelector)
+
     if (missionSecrets.length == 0) {
       return;
     }
@@ -52,8 +50,8 @@ export class AuthServiceSecretBuilder {
         id,
         name,
         hostname: `${name}.${domain}`,
-        redirect_uri: this.decodeBase64(secret, "redirect_uri"),
-        secret: this.decodeBase64(secret, "secret"),
+        redirect_uri: this.decodeBase64(secret, "redirectUri"),
+        secret: this.decodeBase64(secret, "clientSecret"),
       });
     });
 
