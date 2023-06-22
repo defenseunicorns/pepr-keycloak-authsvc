@@ -35,7 +35,9 @@ export class AuthServiceSecretBuilder {
   }
 
   async buildAuthserviceSecret(labelSelector: string) {
-    const missionSecrets = await this.k8sApi.getSecretsByLabeSelector(labelSelector)
+    const missionSecrets = await this.k8sApi.getSecretsByLabeSelector(
+      labelSelector
+    );
 
     if (missionSecrets.length == 0) {
       return;

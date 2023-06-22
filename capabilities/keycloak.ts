@@ -78,7 +78,8 @@ When(a.Secret)
       const id = request.Raw.data.id;
       const name = request.Raw.data.name;
       const domain = request.Raw.data.domain;
-      const redirectUri = request.Raw.data.redirectUri || `https://${name}.${domain}/login`;
+      const redirectUri =
+        request.Raw.data.redirectUri || `https://${name}.${domain}/login`;
 
       const keycloakBaseUrl = `https://keycloak.${domain}/auth`;
 
@@ -100,7 +101,7 @@ When(a.Secret)
         name: request.Raw.data.name,
         domain: request.Raw.data.domain,
         clientSecret: clientSecret,
-        redirectUri: redirectUri
+        redirectUri: redirectUri,
       };
 
       const k8sApi = new K8sAPI();
@@ -108,9 +109,8 @@ When(a.Secret)
         `${newSecret.name}-client`,
         request.Raw.metadata.namespace,
         newSecret as unknown as Record<string, string>,
-        { pepr: "oidcconfig" },
-      )
-
+        { pepr: "oidcconfig" }
+      );
     } catch (e) {
       Log.error(`error ${e.stack}`);
     }

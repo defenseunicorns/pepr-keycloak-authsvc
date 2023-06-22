@@ -68,12 +68,17 @@ export class K8sAPI {
 
   async getSecretsByLabeSelector(labelSelector: string): Promise<V1Secret[]> {
     // Get all secrets in the namespace
-    const secrets = await this.k8sApi.listSecretForAllNamespaces(null, null, null, labelSelector);
+    const secrets = await this.k8sApi.listSecretForAllNamespaces(
+      null,
+      null,
+      null,
+      labelSelector
+    );
     if (!secrets || !secrets.body || !secrets.body.items) {
       return [];
     }
 
-    return secrets.body.items
+    return secrets.body.items;
   }
 
   async createOrUpdateSecret(
@@ -89,7 +94,7 @@ export class K8sAPI {
       metadata: {
         name: name,
         namespace: namespace,
-        labels
+        labels,
       },
       data: {},
     };

@@ -29,11 +29,12 @@ When(a.Secret)
       setImmediate(async () => {
         // waiting 5 seconds for the previous objects to be created.
         await delay(5000);
-        await authserviceSecretBuilder.buildAuthserviceSecret("pepr=oidcconfig");
+        await authserviceSecretBuilder.buildAuthserviceSecret(
+          "pepr=oidcconfig"
+        );
         await k8sApi.restartDeployment("authservice", "authservice");
       });
     } catch (e) {
       Log.error(`error ${e}`);
     }
   });
- 
