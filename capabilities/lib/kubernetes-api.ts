@@ -44,12 +44,12 @@ export class K8sAPI {
     throw new Error(`Could not retrieve the secret ${name}`);
   }
 
-  async restartDeployment(name: string, namespace: string) {
+  async checksumDeployment(name: string, namespace: string, checksum: string) {
     const patch = [
       {
         op: "add",
-        path: "/spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt",
-        value: new Date().toISOString(),
+        path: "/spec/template/metadata/annotations/pepr.dev~1checksum",
+        value: checksum,
       },
     ];
 
