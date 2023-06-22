@@ -1,7 +1,7 @@
 import { K8sAPI } from "../kubernetes-api";
 import { AuthserviceConfig } from "./secretConfig";
 import { V1Secret } from "@kubernetes/client-node";
-import { createHash } from "crypto"
+import { createHash } from "crypto";
 
 export class AuthServiceSecretBuilder {
   k8sApi: K8sAPI;
@@ -58,8 +58,8 @@ export class AuthServiceSecretBuilder {
       });
     });
 
-    const config = JSON.stringify(authserviceConfig)
-    const configHash = createHash('sha256').update(config).digest("hex");
+    const config = JSON.stringify(authserviceConfig);
+    const configHash = createHash("sha256").update(config).digest("hex");
 
     await this.k8sApi.createOrUpdateSecret(
       this.authServiceNamespace,
@@ -67,6 +67,6 @@ export class AuthServiceSecretBuilder {
       { [this.authServiceConfigFileName]: config }
     );
 
-    return configHash
+    return configHash;
   }
 }
