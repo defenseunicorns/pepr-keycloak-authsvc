@@ -1,4 +1,4 @@
-import { OIDCConfig } from "./oidcSectionConfig";
+import { LogoutConfig, OIDCConfig } from "./oidcSectionConfig";
 
 export class StringMatch {
   exact?: string;
@@ -176,11 +176,17 @@ export class AuthserviceConfig {
   }
 
   static createSingleChain(input: ChainInput): FilterChain {
+    const logout = new LogoutConfig({
+      path: "/logout",
+      redirect_uri: `https://keycloak.${input.domain}/auth/realms/${input.realm}/protocol/openid-connect/logout?client_id=${input.id}`,
+    });
+
     const oidcConfig = new OIDCConfig({
       callback_uri: input.redirect_uri,
       client_id: input.id,
       client_secret: input.secret,
       cookie_name_prefix: input.name,
+      logout: logout,
     });
 
     const filter = new Filter({

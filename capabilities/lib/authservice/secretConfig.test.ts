@@ -1,6 +1,6 @@
 import test from "ava";
 import { AuthserviceConfig, ChainInput, Match } from "./secretConfig";
-import { OIDCConfig } from "./oidcSectionConfig";
+import { LogoutConfig, OIDCConfig } from "./oidcSectionConfig";
 
 test("AuthserviceConfig should handle input correctly", t => {
   const chainInput: ChainInput = {
@@ -9,6 +9,8 @@ test("AuthserviceConfig should handle input correctly", t => {
     hostname: "test.hostname",
     redirect_uri: "http://localhost:8080",
     secret: "secret",
+    domain: "example.com",
+    realm: "brown-bear",
   };
 
   const filterChain = AuthserviceConfig.createSingleChain(chainInput);
@@ -30,6 +32,13 @@ test("AuthserviceConfig should handle input correctly", t => {
   t.is(oidcConfig.client_id, chainInput.name);
   t.is(oidcConfig.client_secret, chainInput.secret);
   t.is(oidcConfig.cookie_name_prefix, chainInput.name);
+
+  const logoutConfig = oidcConfig.logout as LogoutConfig;
+  t.is(logoutConfig.path, "/logout");
+  t.is(
+    logoutConfig.redirect_uri,
+    "https://keycloak.example.com/auth/realms/brown-bear/protocol/openid-connect/logout?client_id=test"
+  );
 
   const json = {
     chains: [filterChain.toObject()],
