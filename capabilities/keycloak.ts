@@ -74,7 +74,7 @@ When(a.Secret)
       const name = request.Raw.data.name;
       const domain = request.Raw.data.domain;
       const redirectUri =
-        request.Raw.data.redirectUri || `https://${name}.${domain}`;
+        request.Raw.data.redirectUri || `https://${name}.${domain}/login`;
 
       const keycloakBaseUrl = `https://keycloak.${domain}/auth`;
 
