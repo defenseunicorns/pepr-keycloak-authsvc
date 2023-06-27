@@ -23,8 +23,7 @@ Demo steps
 When(a.Secret)
   .IsCreatedOrUpdated()
   .InNamespace("keycloak")
-  .WithName("configrealm")
-  .WithLabel("todo", "createrealm")
+  .WithLabel("pepr.dev/keycloak", "createrealm")
   .Then(async request => {
     const realm = request.Raw.data.realm;
     const domain = request.Raw.data.domain;
@@ -32,8 +31,7 @@ When(a.Secret)
     const keycloakBaseUrl = `https://keycloak.${domain}/auth`;
     const kcAPI = new KcAPI(keycloakBaseUrl);
     await kcAPI.GetOrCreateRealm(realm);
-    request.RemoveLabel("todo");
-    request.SetLabel("done", "created");
+    request.SetLabel("pepr.dev/keycloak", "done");
   });
 
 // Import a realm from a configmap
@@ -45,8 +43,7 @@ Example steps:
 When(a.ConfigMap)
   .IsCreatedOrUpdated()
   .InNamespace("keycloak")
-  .WithName("configrealm")
-  .WithLabel("todo", "createrealm")
+  .WithLabel("pepr.dev/keycloak", "createrealm")
   .Then(async request => {
     try {
       const domain = request.Raw.data.domain;
@@ -54,8 +51,7 @@ When(a.ConfigMap)
 
       const kcAPI = new KcAPI(keycloakBaseUrl);
       await kcAPI.ImportRealm(request.Raw.data.realmJson);
-      request.RemoveLabel("todo");
-      request.SetLabel("done", "created");
+      request.SetLabel("pepr.dev/keycloak", "done");
     } catch (e) {
       Log.error(`error ${e}`);
       request.SetLabel("error", e.message);
@@ -70,8 +66,7 @@ Example steps:
 */
 When(a.Secret)
   .IsCreatedOrUpdated()
-  .WithName("configclient")
-  .WithLabel("todo", "createclient")
+  .WithLabel("pepr.dev/keycloak", "createclient")
   .Then(async request => {
     try {
       const realm = request.Raw.data.realm;
@@ -79,7 +74,7 @@ When(a.Secret)
       const name = request.Raw.data.name;
       const domain = request.Raw.data.domain;
       const redirectUri =
-        request.Raw.data.redirectUri || `https://${name}.${domain}/login`;
+        request.Raw.data.redirectUri || `https://${name}.${domain}`;
 
       const keycloakBaseUrl = `https://keycloak.${domain}/auth`;
 
@@ -92,8 +87,7 @@ When(a.Secret)
         redirectUri
       );
 
-      request.RemoveLabel("todo");
-      request.SetLabel("done", "createclient");
+      request.SetLabel("pepr.dev/keycloak", "done");
 
       const newSecret: OidcClientK8sSecretData = {
         realm: request.Raw.data.realm,
@@ -109,7 +103,7 @@ When(a.Secret)
         `${newSecret.name}-client`,
         request.Raw.metadata.namespace,
         newSecret as unknown as Record<string, string>,
-        { pepr: "oidcconfig" }
+        { "pepr.dev/keycloak": "oidcconfig" }
       );
     } catch (e) {
       Log.error(`error ${e.stack}`);

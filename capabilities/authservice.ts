@@ -20,7 +20,7 @@ function delay(ms: number): Promise<void> {
 // Update the authservice secret (triggers from previous capability)
 When(a.Secret)
   .IsCreatedOrUpdated()
-  .WithLabel("pepr", "oidcconfig")
+  .WithLabel("pepr.dev/keycloak", "oidcconfig")
   .Then(async request => {
     try {
       const k8sApi = new K8sAPI();
@@ -31,7 +31,7 @@ When(a.Secret)
         await delay(5000);
         const sha256Hash =
           await authserviceSecretBuilder.buildAuthserviceSecret(
-            "pepr=oidcconfig"
+            "pepr.dev/keycloak=oidcconfig"
           );
         await k8sApi.checksumDeployment(
           "authservice",
