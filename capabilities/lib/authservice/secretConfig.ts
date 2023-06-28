@@ -141,6 +141,8 @@ export interface ChainInput {
   redirect_uri: string;
   secret: string;
   id: string;
+  domain: string;
+  realm: string;
 }
 
 export class AuthserviceConfig {
