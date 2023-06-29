@@ -1,11 +1,11 @@
 # Pepr Module for Keycloak and Authservice
 
 This is a Pepr Module intended to be imported into your own Pepr Module. [Pepr](https://github.com/defenseunicorns/pepr) is a Kubernetes transformation system written in Typescript. 
-<br>
-This repo has two capabilities in it that can be imported separately, or used together.
+
+## This repo has two capabilities in it that can be imported separately, or used together.
 1. Keycloak capability communicates with the keycloak deployed in cluster to generate a new client secret that will be picked up by the authservice module.
 2. Authservice capability reads from secrets created by the Keycloak module or manually and updates authservice's config.
-<br>
+
 These capability working together are designed to automate the manual steps required to integrate new applications into the [Big Bang IdAM Solution](https://docs-bigbang.dso.mil/latest/docs/understanding-bigbang/package-architecture/authservice/). If you wish to use this capability with the open source charts/images for this, there will be some changes that will need to be made:
 1. authservice does not have a public chart, only an [example](https://github.com/istio-ecosystem/authservice/tree/master/bookinfo-example/authservice). Changes will need to be made to make this work. You should start with the [bigbang docs](https://docs-bigbang.dso.mil/2.2.0/docs/understanding-bigbang/package-architecture/authservice/) to help with the implementation
 2. There are assumptions that the Keycloak capability makes that are specific to work with the [bigbang keycloak chart](https://docs-bigbang.dso.mil/2.2.0/docs/understanding-bigbang/package-architecture/keycloak/#Keycloak). This code can function with some minor changes to work with other keycloak charts. Mostly around where the keycloak chart stores the local admin kubernetes secret which the capability uses to communicate with keycloak.
