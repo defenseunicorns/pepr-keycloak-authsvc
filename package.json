@@ -40,7 +40,7 @@
     "pepr": "^0.9.0"
   },
   "devDependencies": {
-    "ava": "5.3.0",
+    "ava": "5.3.1",
     "ts-node": "10.9.1",
     "typescript": "5.0.4"
   },
