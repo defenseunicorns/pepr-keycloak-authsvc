@@ -44,12 +44,12 @@ export class K8sAPI {
     throw new Error(`Could not retrieve the secret ${name}`);
   }
 
-  async restartDeployment(name: string, namespace: string) {
+  async checksumDeployment(name: string, namespace: string, checksum: string) {
     const patch = [
       {
         op: "add",
-        path: "/spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt",
-        value: new Date().toISOString(),
+        path: "/spec/template/metadata/annotations/pepr.dev~1checksum",
+        value: checksum,
       },
     ];
 
@@ -66,28 +66,21 @@ export class K8sAPI {
     );
   }
 
-  async getSecretsByPattern(pattern: string, namespace: string) {
-    // Get all secrets in the namespace
-    const secrets = await this.k8sApi.listNamespacedSecret(namespace);
-    if (!secrets || !secrets.body || !secrets.body.items) {
-      return [];
-    }
-
-    // Filter the secrets by the provided pattern
-    const matchingSecrets = secrets.body.items.filter(
-      secret =>
-        secret.metadata &&
-        secret.metadata.name &&
-        secret.metadata.name.startsWith(pattern)
+  async getSecretsByLabelSelector(labelSelector: string): Promise<V1Secret[]> {
+    const secrets = await this.k8sApi.listSecretForAllNamespaces(
+      null,
+      null,
+      null,
+      labelSelector
     );
-
-    return matchingSecrets;
+    return secrets?.body?.items || [];
   }
 
-  async createOrUpdateSecret(
+  async upsertSecret(
     name: string,
     namespace: string,
-    secretData: Record<string, string>
+    secretData: Record<string, string>,
+    labels?: { [key: string]: string }
   ) {
     // Prepare the Secret object
     const secret: V1Secret = {
@@ -96,6 +89,7 @@ export class K8sAPI {
       metadata: {
         name: name,
         namespace: namespace,
+        labels,
       },
       data: {},
     };
