@@ -43,9 +43,12 @@ When(a.Secret)
     await updateAuthServiceSecret();
   });
 
+// TODO: this does not work yet due to functionality in pepr, will be added back in later
+/*
 When(a.Secret)
   .IsDeleted()
   .WithLabel("pepr.dev/keycloak", "oidcconfig")
   .Then(async () => {
     await updateAuthServiceSecret();
   });
+*/

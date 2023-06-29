@@ -38,8 +38,8 @@ When(a.Secret)
 // Import a realm from a configmap
 /* 
 Example steps:
-    kubectl create cm configrealm -n podinfo --from-file=realmJson --from-literal=domain=bigbang.dev
-    kubectl label cm configrealm -n podinfo  pepr.dev/keycloak=createrealm
+    kubectl create cm configrealm -n keycloak --from-file=realmJson --from-literal=domain=bigbang.dev
+    kubectl label cm configrealm -n keycloak  pepr.dev/keycloak=createrealm
 */
 When(a.ConfigMap)
   .IsCreatedOrUpdated()
@@ -103,6 +103,8 @@ When(a.Secret)
     }
   });
 
+// TODO: this does not work yet due to functionality in pepr, will be added back in later
+/*
 When(a.Secret)
   .IsDeleted()
   .WithLabel("pepr.dev/keycloak", "createclient")
@@ -119,3 +121,4 @@ When(a.Secret)
       Log.error(`error ${e.stack}`);
     }
   });
+*/
