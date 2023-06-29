@@ -36,7 +36,7 @@ export class AuthServiceSecretBuilder {
   }
 
   async buildAuthserviceSecret(labelSelector: string): Promise<string> {
-    const missionSecrets = await this.k8sApi.getSecretsByLabeSelector(
+    const missionSecrets = await this.k8sApi.getSecretsByLabelSelector(
       labelSelector
     );
 
@@ -61,7 +61,7 @@ export class AuthServiceSecretBuilder {
     const config = JSON.stringify(authserviceConfig);
     const configHash = createHash("sha256").update(config).digest("hex");
 
-    await this.k8sApi.createOrUpdateSecret(
+    await this.k8sApi.upsertSecret(
       this.authServiceNamespace,
       this.authServiceSecretName,
       { [this.authServiceConfigFileName]: config }

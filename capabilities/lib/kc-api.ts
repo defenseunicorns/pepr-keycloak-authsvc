@@ -142,7 +142,6 @@ export class KcAPI {
 
   private async GetClientSecret(
     realmName: string,
-    clientName: string,
     clientId: string
   ): Promise<string> {
     await this.connect();
@@ -189,7 +188,7 @@ export class KcAPI {
   ): Promise<string> {
     await this.connect();
 
-    const secret = await this.GetClientSecret(realmName, clientName, clientId);
+    const secret = await this.GetClientSecret(realmName, clientId);
     if (secret) {
       return secret;
     }
@@ -198,7 +197,7 @@ export class KcAPI {
     await this.CreateClient(clientId, clientName, redirectUri, realmName);
 
     //
-    return await this.GetClientSecret(realmName, clientName, clientId);
+    return await this.GetClientSecret(realmName, clientId);
   }
 
   private async CreateClient(
@@ -227,6 +226,21 @@ export class KcAPI {
 
     if (!response.ok) {
       throw new Error(`Failed to create client with clientId ${clientId}`);
+    }
+  }
+
+  async DeleteClient(clientId: string, realmName: string) {
+    const response = await fetch(
+      `${this.keycloakBaseUrl}/admin/realms/${realmName}/clients/${clientId}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+        },
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to delete client with clientId ${clientId}`);
     }
   }
 }
