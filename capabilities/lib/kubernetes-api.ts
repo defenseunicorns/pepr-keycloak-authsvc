@@ -18,13 +18,11 @@ export class K8sAPI {
     this.k8sAppsV1Api = kc.makeApiClient(AppsV1Api);
   }
 
-  async getSecretValues(
-    name: string,
-    namespace: string,
+  getSecretValues(
+    inputSecret: V1Secret,
     keys: string[]
-  ): Promise<{ [key: string]: string }> {
-    const response = await this.k8sApi.readNamespacedSecret(name, namespace);
-    const secret = response.body.data;
+  ): { [key: string]: string } {
+    const secret = inputSecret.data;
     const secretValues: { [key: string]: string } = {};
 
     if (secret) {
@@ -36,12 +34,16 @@ export class K8sAPI {
           );
           secretValues[key] = decodedValue;
         } else {
-          throw new Error(`Could not find key '${key}' in the secret ${name}`);
+          throw new Error(
+            `Could not find key '${key}' in the secret ${inputSecret.metadata?.name}`
+          );
         }
       });
       return secretValues;
     }
-    throw new Error(`Could not retrieve the secret ${name}`);
+    throw new Error(
+      `Could not retrieve the secret ${inputSecret.metadata?.name}`
+    );
   }
 
   async checksumDeployment(name: string, namespace: string, checksum: string) {
@@ -109,6 +111,52 @@ export class K8sAPI {
       if (e.response && e.response.statusCode === fetchStatus.NOT_FOUND) {
         // If the Secret doesn't exist, create it
         await this.k8sApi.createNamespacedSecret(namespace, secret);
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  async patchSecret(
+    existingSecret: V1Secret,
+    secretData: Record<string, string>
+  ): Promise<boolean> {
+    for (const key in secretData) {
+      existingSecret.data[key] = Buffer.from(secretData[key]).toString(
+        "base64"
+      );
+    }
+    try {
+      // If the Secret exists, update it
+      await this.k8sApi.patchNamespacedSecret(
+        existingSecret.metadata.name,
+        existingSecret.metadata.namespace,
+        existingSecret,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        { headers: { "content-type": "application/merge-patch+json" } }
+      );
+      return true;
+    } catch (e) {
+      // Check to see if we're out of sync.
+      if (e.response && e.response.statusCode === 409) {
+        // Conflict due to version mismatch
+        return false;
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  async deleteSecret(name: string, namespace: string) {
+    try {
+      await this.k8sApi.deleteNamespacedSecret(name, namespace);
+    } catch (e) {
+      if (e.response?.statusCode === fetchStatus.NOT_FOUND) {
+        return;
       } else {
         throw e;
       }

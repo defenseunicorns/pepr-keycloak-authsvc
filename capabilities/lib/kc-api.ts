@@ -36,7 +36,11 @@ export class KcAPI {
     const name = "keycloak-env";
 
     this.k8sApi = new K8sAPI();
-    const creds = await this.k8sApi.getSecretValues(name, namespace, [
+    const responseSecret = await this.k8sApi.k8sApi.readNamespacedSecret(
+      name, namespace
+    );
+    const existingSecret = responseSecret.body;
+    const creds = this.k8sApi.getSecretValues(existingSecret, [
       "KEYCLOAK_ADMIN_PASSWORD",
       "KEYCLOAK_ADMIN",
     ]);
@@ -206,6 +210,8 @@ export class KcAPI {
     redirectUri: string,
     realmName: string
   ) {
+    await this.connect();
+
     const newClient = {
       clientId: clientId,
       name: clientName,
@@ -230,6 +236,7 @@ export class KcAPI {
   }
 
   async DeleteClient(clientId: string, realmName: string) {
+    await this.connect();
     const response = await fetch(
       `${this.keycloakBaseUrl}/admin/realms/${realmName}/clients/${clientId}`,
       {
@@ -239,8 +246,8 @@ export class KcAPI {
         },
       }
     );
-    if (!response.ok) {
-      throw new Error(`Failed to delete client with clientId ${clientId}`);
+    if (!response.ok && response.status !== fetchStatus.NOT_FOUND) {
+      throw new Error(`Failed to delete client with clientId ${clientId}, ${response.status}`);
     }
   }
 }
