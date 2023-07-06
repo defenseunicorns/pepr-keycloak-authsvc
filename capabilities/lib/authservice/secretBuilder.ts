@@ -72,23 +72,22 @@ export class AuthServiceSecretBuilder {
     return missionSecrets;
   }
 
-  async buildAuthserviceSecret(
-    labelSelector: string,
-    deleteSecret?: V1Secret,
-    addSecret?: V1Secret
-  ): Promise<string> {
-    let configHash = "";
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
-    for (let didItWork = false; !didItWork; ) {
+  async updateAuthServiceSecret(
+    labelSelector: string,
+    addSecret?: V1Secret,
+    deleteSecret?: V1Secret,
+    retryMax: number = 10
+  ): Promise<string> {
+    for (let retries = 0; retries < retryMax; retries++) {
       const missionSecrets = await this.getSecrets(
         labelSelector,
         deleteSecret,
         addSecret
       );
-
-      if (missionSecrets.length == 0) {
-        return;
-      }
 
       const response = await this.k8sApi.k8sApi.readNamespacedSecret(
         this.authServiceSecretName,
@@ -110,16 +109,30 @@ export class AuthServiceSecretBuilder {
         });
       });
 
+      // In the event that we've deleted the chain, create a placeholder to keep authservice from crashing
+      if (authserviceConfig.chains.length === 0) {
+        authserviceConfig.chains.push(AuthserviceConfig.createSingleChain({
+          id: "placeholderId",
+          name: "placeholderName",
+          hostname: "localhost.localhost",
+          redirect_uri: "https://localhost.localhost",
+          secret: "placeholderSecret",
+        }))
+      }
+
       const config = JSON.stringify(authserviceConfig);
-      configHash = createHash("sha256").update(config).digest("hex");
-      didItWork = await this.k8sApi.patchSecret(existingSecret, {
+      const configHash = createHash("sha256").update(config).digest("hex");
+      const didItWork = await this.k8sApi.patchSecret(existingSecret, {
         [this.authServiceConfigFileName]: config,
       });
-      if (!didItWork) {
-        Log.info("Failed to update secret, retrying");
+      if (didItWork) {
+        Log.info("Updated secret", "updateAuthServiceSecret");
+        return configHash;
       }
+      Log.info("Patching AuthService Secret failed (out of sync), will retry", "updateAuthServiceSecret");
+      this.delay(1000);
     }
-
-    return configHash;
+    Log.error(`Patching AuthService Secret failed after ${retryMax} attempts`, "updateAuthServiceSecret");
+    return undefined;
   }
 }

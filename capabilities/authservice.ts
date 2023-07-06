@@ -12,32 +12,42 @@ export const AuthService = new Capability({
 
 const { When } = AuthService;
 
+
+// this will continue running
 async function updateAuthServiceSecret(addSecret?: V1Secret, deleteSecret?: V1Secret) {
   try {
     const k8sApi = new K8sAPI();
     const authserviceSecretBuilder = new AuthServiceSecretBuilder(k8sApi);
-      const sha256Hash = await authserviceSecretBuilder.buildAuthserviceSecret(
+      const sha256Hash = await authserviceSecretBuilder.updateAuthServiceSecret(
         "pepr.dev/keycloak=oidcconfig", addSecret,  deleteSecret);
       await k8sApi.checksumDeployment("authservice", "authservice", sha256Hash);
   } catch (e) {
-    Log.error(`error ${e}`);
+    Log.error(`error ${e}`, "updateAuthServiceSecret");
   }
 }
 
-// In the event that any secrets are changed that are used by authservice, regenerate the authservice secret
-// Created/Deleted/Updated.
+async function addSecret(secret: V1Secret) {
+  await updateAuthServiceSecret(secret, undefined);
+}
+async function deleteSecret(secret: V1Secret) {
+  await updateAuthServiceSecret(undefined, secret);
+}
+
+
+// these will run in the backgeound
 When(a.Secret)
   .IsCreatedOrUpdated()
   .WithLabel("pepr.dev/keycloak", "oidcconfig")
-  .Then(async request => {
-    await updateAuthServiceSecret(request.Raw, undefined);
+  .Then(request => {
+    addSecret(request.Raw);
   });
+
 
 When(a.Secret)
   .IsDeleted()
-  .Then(async request => {
+  .Then(request => {
     // 0.10.0 bug.
     if (request.OldResource.metadata?.labels?.["pepr.dev/keycloak"] === "oidcconfig") {
-      await updateAuthServiceSecret(undefined, request.OldResource);
+      deleteSecret(request.OldResource);
     }
   });
