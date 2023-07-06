@@ -12,7 +12,7 @@ export const Keycloak = new Capability({
 const { When } = Keycloak;
 
 function getKeyclockBaseURL(domain: string) {
-  return `http://localhost:8888/auth`;
+  return `https://keycloak.${domain}/auth`;
 }
 
 // Create a realm from a generic secret:
@@ -30,7 +30,7 @@ When(a.Secret)
       const kcAPI = new KcAPI(getKeyclockBaseURL(request.Raw.data.domain));
       await kcAPI.GetOrCreateRealm(request.Raw.data.realm);
     } catch (e) {
-      Log.error(`error ${e}`);
+      Log.error(`error ${e}`, "Keycloak.Secret.Realm.IsCreatedOrUpdated()");
     }
   });
 
@@ -49,7 +49,7 @@ When(a.ConfigMap)
       const kcAPI = new KcAPI(getKeyclockBaseURL(request.Raw.data.domain));
       await kcAPI.ImportRealm(request.Raw.data.realmJson);
     } catch (e) {
-      Log.error(`error ${e}`);
+      Log.error(`error ${e}`, "Keycloak.ConfigMap.Realm.IsCreatedOrUpdated()");
     }
   });
 
@@ -95,7 +95,7 @@ When(a.Secret)
         { "pepr.dev/keycloak": "oidcconfig" }
       );
     } catch (e) {
-      Log.error(`error ${e.stack}`);
+      Log.error(`error ${e}`, "Keycloak.Client.Secret.IsCreatedOrUpdated()");
     }
   });
 
@@ -118,7 +118,7 @@ When(a.Secret)
         `${request.Raw.data.name}-client`,
         request.Raw.metadata.namespace)
     } catch (e) {
-      Log.error(`error ${e.message}`);
+      Log.error(`error ${e}`, "Keycloak.Client.Secret.IsDeleted()");
     }
   }
   });
