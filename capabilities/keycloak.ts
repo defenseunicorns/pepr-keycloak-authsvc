@@ -103,23 +103,20 @@ When(a.Secret)
 When(a.Secret)
   .IsDeleted()
   .Then(async request => {
-   // 0.10.0 doesn't have the WithLabel() fixed properly yet
-   if (request.Raw?.metadata?.labels?.["pepr.dev/keycloak"] === "createclient") {
-    try {
-      const kcAPI = new KcAPI(
-        getKeyclockBaseURL(request.Raw.data.domain)
-      );
-      kcAPI.DeleteClient(
-        request.Raw.data.id,
-        request.Raw.data.realm
-      );
-      const k8sApi = new K8sAPI();
-      await k8sApi.deleteSecret(
-        `${request.Raw.data.name}-client`,
-        request.Raw.metadata.namespace)
-    } catch (e) {
-      Log.error(`error ${e}`, "Keycloak.Client.Secret.IsDeleted()");
+    // 0.10.0 doesn't have the WithLabel() fixed properly yet
+    if (
+      request.Raw?.metadata?.labels?.["pepr.dev/keycloak"] === "createclient"
+    ) {
+      try {
+        const kcAPI = new KcAPI(getKeyclockBaseURL(request.Raw.data.domain));
+        kcAPI.DeleteClient(request.Raw.data.id, request.Raw.data.realm);
+        const k8sApi = new K8sAPI();
+        await k8sApi.deleteSecret(
+          `${request.Raw.data.name}-client`,
+          request.Raw.metadata.namespace
+        );
+      } catch (e) {
+        Log.error(`error ${e}`, "Keycloak.Client.Secret.IsDeleted()");
+      }
     }
-  }
   });
-
