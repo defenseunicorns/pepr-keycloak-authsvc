@@ -37,7 +37,8 @@ export class KcAPI {
 
     this.k8sApi = new K8sAPI();
     const responseSecret = await this.k8sApi.k8sApi.readNamespacedSecret(
-      name, namespace
+      name,
+      namespace
     );
     const existingSecret = responseSecret.body;
     const creds = this.k8sApi.getSecretValues(existingSecret, [
@@ -247,7 +248,9 @@ export class KcAPI {
       }
     );
     if (!response.ok && response.status !== fetchStatus.NOT_FOUND) {
-      throw new Error(`Failed to delete client with clientId ${clientId}, ${response.status}`);
+      throw new Error(
+        `Failed to delete client with clientId ${clientId}, ${response.status}`
+      );
     }
   }
 }

@@ -80,7 +80,7 @@ export class AuthServiceSecretBuilder {
     labelSelector: string,
     addSecret?: V1Secret,
     deleteSecret?: V1Secret,
-    retryMax: number = 10
+    retryMax = 10
   ): Promise<string> {
     for (let retries = 0; retries < retryMax; retries++) {
       const missionSecrets = await this.getSecrets(
@@ -111,13 +111,15 @@ export class AuthServiceSecretBuilder {
 
       // In the event that we've deleted the chain, create a placeholder to keep authservice from crashing
       if (authserviceConfig.chains.length === 0) {
-        authserviceConfig.chains.push(AuthserviceConfig.createSingleChain({
-          id: "placeholderId",
-          name: "placeholderName",
-          hostname: "localhost.localhost",
-          redirect_uri: "https://localhost.localhost",
-          secret: "placeholderSecret",
-        }))
+        authserviceConfig.chains.push(
+          AuthserviceConfig.createSingleChain({
+            id: "placeholderId",
+            name: "placeholderName",
+            hostname: "localhost.localhost",
+            redirect_uri: "https://localhost.localhost",
+            secret: "placeholderSecret",
+          })
+        );
       }
 
       const config = JSON.stringify(authserviceConfig);
@@ -129,10 +131,16 @@ export class AuthServiceSecretBuilder {
         Log.info("Updated secret", "updateAuthServiceSecret");
         return configHash;
       }
-      Log.info("Patching AuthService Secret failed (out of sync), will retry", "updateAuthServiceSecret");
+      Log.info(
+        "Patching AuthService Secret failed (out of sync), will retry",
+        "updateAuthServiceSecret"
+      );
       this.delay(1000);
     }
-    Log.error(`Patching AuthService Secret failed after ${retryMax} attempts`, "updateAuthServiceSecret");
+    Log.error(
+      `Patching AuthService Secret failed after ${retryMax} attempts`,
+      "updateAuthServiceSecret"
+    );
     return undefined;
   }
 }
