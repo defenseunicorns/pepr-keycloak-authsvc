@@ -1,3 +1,4 @@
+import { Log } from "pepr";
 import { K8sAPI } from "../kubernetes-api";
 import { AuthserviceConfig } from "./secretConfig";
 import { V1Secret } from "@kubernetes/client-node";
@@ -24,26 +25,70 @@ export class AuthServiceSecretBuilder {
     return Buffer.from(secret.data[key], "base64").toString("utf-8");
   }
 
-  async getAuthServiceSecret(): Promise<AuthserviceConfig> {
-    const secretData = await this.k8sApi.getSecretValues(
-      this.authServiceSecretName,
-      this.authServiceNamespace,
-      [this.authServiceConfigFileName]
-    );
+  getAuthServiceSecret(inputSecret: V1Secret): AuthserviceConfig {
+    const secretData = this.k8sApi.getSecretValues(inputSecret, [
+      this.authServiceConfigFileName,
+    ]);
     return new AuthserviceConfig(
       JSON.parse(secretData[this.authServiceConfigFileName])
     );
   }
 
-  async buildAuthserviceSecret(labelSelector: string): Promise<string> {
-    const missionSecrets = await this.k8sApi.getSecretsByLabelSelector(
+  private removeSecret(removeMe: V1Secret, secrets: V1Secret[]): V1Secret[] {
+    if (removeMe === undefined) {
+      return secrets;
+    }
+    return secrets.filter(
+      secret =>
+        secret.metadata?.name !== removeMe.metadata?.name ||
+        secret.metadata?.namespace !== removeMe.metadata?.namespace
+    );
+  }
+
+  private async getSecrets(
+    labelSelector: string,
+    deleteSecret?: V1Secret,
+    addSecret?: V1Secret
+  ): Promise<V1Secret[]> {
+    let missionSecrets = await this.k8sApi.getSecretsByLabelSelector(
       labelSelector
     );
 
-    if (missionSecrets.length == 0) {
-      return;
+    missionSecrets = this.removeSecret(deleteSecret, missionSecrets);
+    missionSecrets = this.removeSecret(addSecret, missionSecrets);
+    if (addSecret) {
+      missionSecrets = [...missionSecrets, addSecret];
     }
-    const authserviceConfig = await this.getAuthServiceSecret();
+
+    missionSecrets.sort((a, b) => {
+      const nameCompare = a.metadata?.name?.localeCompare(
+        b.metadata?.name || ""
+      );
+      if (nameCompare !== 0) return nameCompare;
+      return (a.metadata?.namespace || "").localeCompare(
+        b.metadata?.namespace || ""
+      );
+    });
+    return missionSecrets;
+  }
+
+  async updateAuthServiceSecret(
+    labelSelector: string,
+    addSecret?: V1Secret,
+    deleteSecret?: V1Secret
+  ): Promise<string> {
+    const missionSecrets = await this.getSecrets(
+      labelSelector,
+      deleteSecret,
+      addSecret
+    );
+
+    const response = await this.k8sApi.k8sApi.readNamespacedSecret(
+      this.authServiceSecretName,
+      this.authServiceNamespace
+    );
+    const existingSecret = response.body;
+    const authserviceConfig = this.getAuthServiceSecret(existingSecret);
 
     authserviceConfig.chains = missionSecrets.map(secret => {
       const name = this.decodeBase64(secret, "name");
@@ -58,15 +103,32 @@ export class AuthServiceSecretBuilder {
       });
     });
 
+    // In the event that we've deleted the chain, create a placeholder to keep authservice from crashing
+    if (authserviceConfig.chains.length === 0) {
+      authserviceConfig.chains.push(
+        AuthserviceConfig.createSingleChain({
+          id: "placeholderId",
+          name: "placeholderName",
+          hostname: "localhost.localhost",
+          redirect_uri: "https://localhost.localhost",
+          secret: "placeholderSecret",
+        })
+      );
+    }
+
     const config = JSON.stringify(authserviceConfig);
     const configHash = createHash("sha256").update(config).digest("hex");
-
-    await this.k8sApi.upsertSecret(
-      this.authServiceNamespace,
-      this.authServiceSecretName,
-      { [this.authServiceConfigFileName]: config }
-    );
-
+    const didItWork = await this.k8sApi.patchSecret(existingSecret, {
+      [this.authServiceConfigFileName]: config,
+    });
+    if (didItWork) {
+      Log.info("Updated secret succesfully", "updateAuthServiceSecret");
+    } else {
+      Log.error(
+        "Patching AuthService Secret failed (out of sync)",
+        "updateAuthServiceSecret"
+      );
+    }
     return configHash;
   }
 }
