@@ -72,75 +72,63 @@ export class AuthServiceSecretBuilder {
     return missionSecrets;
   }
 
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
   async updateAuthServiceSecret(
     labelSelector: string,
     addSecret?: V1Secret,
-    deleteSecret?: V1Secret,
-    retryMax = 10
+    deleteSecret?: V1Secret
   ): Promise<string> {
-    for (let retries = 0; retries < retryMax; retries++) {
-      const missionSecrets = await this.getSecrets(
-        labelSelector,
-        deleteSecret,
-        addSecret
-      );
+    const missionSecrets = await this.getSecrets(
+      labelSelector,
+      deleteSecret,
+      addSecret
+    );
 
-      const response = await this.k8sApi.k8sApi.readNamespacedSecret(
-        this.authServiceSecretName,
-        this.authServiceNamespace
-      );
-      const existingSecret = response.body;
-      const authserviceConfig = this.getAuthServiceSecret(existingSecret);
+    const response = await this.k8sApi.k8sApi.readNamespacedSecret(
+      this.authServiceSecretName,
+      this.authServiceNamespace
+    );
+    const existingSecret = response.body;
+    const authserviceConfig = this.getAuthServiceSecret(existingSecret);
 
-      authserviceConfig.chains = missionSecrets.map(secret => {
-        const name = this.decodeBase64(secret, "name");
-        const domain = this.decodeBase64(secret, "domain");
-        const id = this.decodeBase64(secret, "id");
-        return AuthserviceConfig.createSingleChain({
-          id,
-          name,
-          hostname: `${name}.${domain}`,
-          redirect_uri: this.decodeBase64(secret, "redirectUri"),
-          secret: this.decodeBase64(secret, "clientSecret"),
-        });
+    authserviceConfig.chains = missionSecrets.map(secret => {
+      const name = this.decodeBase64(secret, "name");
+      const domain = this.decodeBase64(secret, "domain");
+      const id = this.decodeBase64(secret, "id");
+      return AuthserviceConfig.createSingleChain({
+        id,
+        name,
+        hostname: `${name}.${domain}`,
+        redirect_uri: this.decodeBase64(secret, "redirectUri"),
+        secret: this.decodeBase64(secret, "clientSecret"),
       });
+    });
 
-      // In the event that we've deleted the chain, create a placeholder to keep authservice from crashing
-      if (authserviceConfig.chains.length === 0) {
-        authserviceConfig.chains.push(
-          AuthserviceConfig.createSingleChain({
-            id: "placeholderId",
-            name: "placeholderName",
-            hostname: "localhost.localhost",
-            redirect_uri: "https://localhost.localhost",
-            secret: "placeholderSecret",
-          })
-        );
-      }
+    // In the event that we've deleted the chain, create a placeholder to keep authservice from crashing
+    if (authserviceConfig.chains.length === 0) {
+      authserviceConfig.chains.push(
+        AuthserviceConfig.createSingleChain({
+          id: "placeholderId",
+          name: "placeholderName",
+          hostname: "localhost.localhost",
+          redirect_uri: "https://localhost.localhost",
+          secret: "placeholderSecret",
+        })
+      );
+    }
 
-      const config = JSON.stringify(authserviceConfig);
-      const configHash = createHash("sha256").update(config).digest("hex");
-      const didItWork = await this.k8sApi.patchSecret(existingSecret, {
-        [this.authServiceConfigFileName]: config,
-      });
-      if (didItWork) {
-        Log.info("Updated secret", "updateAuthServiceSecret");
-        return configHash;
-      }
-      Log.info(
-        "Patching AuthService Secret failed (out of sync), will retry",
+    const config = JSON.stringify(authserviceConfig);
+    const configHash = createHash("sha256").update(config).digest("hex");
+    const didItWork = await this.k8sApi.patchSecret(existingSecret, {
+      [this.authServiceConfigFileName]: config,
+    });
+    if (didItWork) {
+      Log.info("Updated secret succesfully", "updateAuthServiceSecret");
+    } else {
+      Log.error(
+        "Patching AuthService Secret failed (out of sync)",
         "updateAuthServiceSecret"
       );
-      this.delay(1000);
     }
-    Log.error(
-      `Patching AuthService Secret failed after ${retryMax} attempts`,
-      "updateAuthServiceSecret"
-    );
-    return undefined;
+    return configHash;
   }
 }

@@ -48,12 +48,7 @@ When(a.Secret)
 
 When(a.Secret)
   .IsDeleted()
+  .WithLabel("pepr.dev/keycloak", "oidcconfig")
   .Then(request => {
-    // 0.10.0 bug.
-    if (
-      request.OldResource.metadata?.labels?.["pepr.dev/keycloak"] ===
-      "oidcconfig"
-    ) {
-      deleteSecret(request.OldResource);
-    }
+    deleteSecret(request.OldResource);
   });
