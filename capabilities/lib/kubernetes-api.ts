@@ -5,6 +5,8 @@ import {
   V1Secret,
 } from "@kubernetes/client-node";
 
+import { k8s } from 'pepr'
+
 import { fetchStatus } from "pepr";
 
 export class K8sAPI {
@@ -118,20 +120,23 @@ export class K8sAPI {
   }
 
   async patchSecret(
-    existingSecret: V1Secret,
+    name: string,
+    namespace: string,
     secretData: Record<string, string>
   ): Promise<boolean> {
+    const data = {}
+
     for (const key in secretData) {
-      existingSecret.data[key] = Buffer.from(secretData[key]).toString(
+      data[key] = Buffer.from(secretData[key]).toString(
         "base64"
       );
     }
     try {
       // If the Secret exists, update it
       await this.k8sApi.patchNamespacedSecret(
-        existingSecret.metadata.name,
-        existingSecret.metadata.namespace,
-        existingSecret,
+        name,
+        namespace,
+        { data },
         undefined,
         undefined,
         undefined,
