@@ -5,7 +5,7 @@ import {
   V1Secret,
 } from "@kubernetes/client-node";
 
-import { k8s } from 'pepr'
+import { k8s } from "pepr";
 
 import { fetchStatus } from "pepr";
 
@@ -124,12 +124,10 @@ export class K8sAPI {
     namespace: string,
     secretData: Record<string, string>
   ): Promise<boolean> {
-    const data = {}
+    const data = {};
 
     for (const key in secretData) {
-      data[key] = Buffer.from(secretData[key]).toString(
-        "base64"
-      );
+      data[key] = Buffer.from(secretData[key]).toString("base64");
     }
     try {
       // If the Secret exists, update it

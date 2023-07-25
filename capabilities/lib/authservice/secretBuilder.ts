@@ -3,12 +3,11 @@ import { K8sAPI } from "../kubernetes-api";
 import { AuthserviceConfig } from "./secretConfig";
 import { V1Secret } from "@kubernetes/client-node";
 import { createHash } from "crypto";
-import { ascend, path, reject, sortWith, } from 'ramda';
-
+import { ascend, path, reject, sortWith } from "ramda";
 
 interface UpdateEvent {
-  secret: V1Secret
-  isDelete: boolean
+  secret: V1Secret;
+  isDelete: boolean;
 }
 
 export class AuthServiceSecretBuilder {
@@ -34,9 +33,9 @@ export class AuthServiceSecretBuilder {
 
   private sortSecrets(secrets: V1Secret[]): V1Secret[] {
     return sortWith([
-      ascend(path(['metadata', 'name'])),
-      ascend(path(['metadata', 'namespace']))
-    ])(secrets)
+      ascend(path(["metadata", "name"])),
+      ascend(path(["metadata", "namespace"])),
+    ])(secrets);
   }
 
   secretToAuthServiceConfig(secret: V1Secret): AuthserviceConfig {
@@ -50,21 +49,22 @@ export class AuthServiceSecretBuilder {
 
   async update(e: UpdateEvent) {
     await this.buildSecretList(e.secret, e.isDelete)
-              .then(this.buildAuthServiceConfig)
-              .then(this.updateAuthServiceSecret)
+      .then(this.buildAuthServiceConfig)
+      .then(this.updateAuthServiceSecret);
   }
-  
+
   async buildSecretList(
     updatedSecret: V1Secret,
     isDelete: boolean,
-    labelSelector = "pepr.dev/keycloak=oidcconfig",
+    labelSelector = "pepr.dev/keycloak=oidcconfig"
   ): Promise<V1Secret[]> {
     let missionSecrets = await this.k8sApi.getSecretsByLabelSelector(
       labelSelector
     );
 
-    function isEqual(s: V1Secret) { 
-      return (secret: V1Secret) => secret.metadata.name === s?.metadata?.name &&
+    function isEqual(s: V1Secret) {
+      return (secret: V1Secret) =>
+        secret.metadata.name === s?.metadata?.name &&
         secret.metadata.namespace === s?.metadata?.namespace;
     }
 
@@ -77,7 +77,7 @@ export class AuthServiceSecretBuilder {
     }
 
     // sort by name, namespace
-    return this.sortSecrets(missionSecrets)
+    return this.sortSecrets(missionSecrets);
   }
 
   async getAuthServiceConfig(): Promise<AuthserviceConfig> {
@@ -89,8 +89,10 @@ export class AuthServiceSecretBuilder {
     return this.secretToAuthServiceConfig(response.body);
   }
 
-  async buildAuthServiceConfig(secrets: V1Secret[]): Promise<AuthserviceConfig> {
-    const authServiceConfig = await this.getAuthServiceConfig()
+  async buildAuthServiceConfig(
+    secrets: V1Secret[]
+  ): Promise<AuthserviceConfig> {
+    const authServiceConfig = await this.getAuthServiceConfig();
 
     authServiceConfig.chains = secrets.map(secret => {
       const name = this.decodeBase64(secret, "name");
@@ -118,21 +120,28 @@ export class AuthServiceSecretBuilder {
       );
     }
 
-    return authServiceConfig
+    return authServiceConfig;
   }
 
   async updateAuthServiceSecret(authserviceConfig: AuthserviceConfig) {
     const config = JSON.stringify(authserviceConfig);
     const configHash = createHash("sha256").update(config).digest("hex");
 
-
-    const didItWork = await this.k8sApi.patchSecret(this.authServiceSecretName, this.authServiceNamespace, {
-      [this.authServiceConfigFileName]: config,
-    });
+    const didItWork = await this.k8sApi.patchSecret(
+      this.authServiceSecretName,
+      this.authServiceNamespace,
+      {
+        [this.authServiceConfigFileName]: config,
+      }
+    );
 
     if (didItWork) {
       Log.info("Updated secret succesfully", "updateAuthServiceSecret");
-      await this.k8sApi.checksumDeployment("authservice", "authservice", configHash)
+      await this.k8sApi.checksumDeployment(
+        "authservice",
+        "authservice",
+        configHash
+      );
     } else {
       Log.error(
         "Patching AuthService Secret failed (out of sync)",

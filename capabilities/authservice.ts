@@ -11,26 +11,26 @@ export const AuthService = new Capability({
 
 const { When } = AuthService;
 
-const k8sApi = new K8sAPI()
-const authserviceSecretBuilder = new AuthServiceSecretBuilder(k8sApi)
+const k8sApi = new K8sAPI();
+const authserviceSecretBuilder = new AuthServiceSecretBuilder(k8sApi);
 
 // these will run in the backgeound
 When(a.Secret)
   .IsCreatedOrUpdated()
   .WithLabel("pepr.dev/keycloak", "oidcconfig")
-  .Then(async (request) => {
+  .Then(async request => {
     await authserviceSecretBuilder.update({
       secret: request.Raw,
-      isDelete: false
-    })
+      isDelete: false,
+    });
   });
 
 When(a.Secret)
   .IsDeleted()
   .WithLabel("pepr.dev/keycloak", "oidcconfig")
-  .Then(async (request) => {
+  .Then(async request => {
     await authserviceSecretBuilder.update({
       secret: request.OldResource,
-      isDelete: true
-    })
+      isDelete: true,
+    });
   });
