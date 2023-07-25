@@ -18,7 +18,7 @@ function getKeyclockBaseURL(domain: string) {
 // Create a realm from a generic secret:
 /* 
 Demo steps
-    kubectl create secret generic configrealm -n keycloak --from-literal=realm=demo --from-literal=domain=bigbang.dev
+    kubectl create secret generic configrealm -n keycloak --from-literal=realm=baby-yoda --from-literal=domain=bigbang.dev
     kubectl label secret configrealm -n keycloak  pepr.dev/keycloak=createrealm
 */
 When(a.Secret)
@@ -29,9 +29,8 @@ When(a.Secret)
     try {
       const kcAPI = new KcAPI(getKeyclockBaseURL(request.Raw.data.domain));
       await kcAPI.GetOrCreateRealm(request.Raw.data.realm);
-      request.SetLabel("pepr.dev/keycloak", "done");
     } catch (e) {
-      Log.error(`error ${e}`);
+      Log.error(`error ${e}`, "Keycloak.Secret.Realm.IsCreatedOrUpdated()");
     }
   });
 
@@ -49,17 +48,16 @@ When(a.ConfigMap)
     try {
       const kcAPI = new KcAPI(getKeyclockBaseURL(request.Raw.data.domain));
       await kcAPI.ImportRealm(request.Raw.data.realmJson);
-      request.SetLabel("pepr.dev/keycloak", "done");
     } catch (e) {
-      Log.error(`error ${e}`);
+      Log.error(`error ${e}`, "Keycloak.ConfigMap.Realm.IsCreatedOrUpdated()");
     }
   });
 
 // Create a client secret
 /* 
 Example steps:
-    kubectl create secret generic configclient -n podinfo --from-literal=realm=cocowow --from-literal=id=podinfo --from-literal=name=podinfo --from-literal=domain=bigbang.dev
-    kubectl label secret configclient -n podinfo  pepr.dev/keycloak=createclient
+    kubectl create secret generic client1 --from-literal=realm=baby-yoda --from-literal=id=podinfo --from-literal=name=podinfo --from-literal=domain=bigbang.dev
+    kubectl label secret client1 pepr.dev/keycloak=createclient
 */
 When(a.Secret)
   .IsCreatedOrUpdated()
@@ -67,7 +65,7 @@ When(a.Secret)
   .Then(async request => {
     try {
       const redirectUri =
-        request.Raw.data.redirectUri ||
+        request.Raw.data?.redirectUri ||
         `https://${request.Raw.data.name}.${request.Raw.data.domain}/login`;
 
       // have keycloak generate the new client and return the secret
@@ -79,8 +77,6 @@ When(a.Secret)
         redirectUri
       );
 
-      request.SetLabel("pepr.dev/keycloak", "done");
-
       const newSecret: OidcClientK8sSecretData = {
         realm: request.Raw.data.realm,
         id: request.Raw.data.id,
@@ -90,7 +86,7 @@ When(a.Secret)
         redirectUri: redirectUri,
       };
 
-      // TODO: add ownerReferences into this secret
+      // TODO: Once this is an admission webhook (versus a mutating webhook, we will have the uid to set the ownerReference )
       const k8sApi = new K8sAPI();
       await k8sApi.upsertSecret(
         `${newSecret.name}-client`,
@@ -99,26 +95,24 @@ When(a.Secret)
         { "pepr.dev/keycloak": "oidcconfig" }
       );
     } catch (e) {
-      Log.error(`error ${e.stack}`);
+      Log.error(`error ${e}`, "Keycloak.Client.Secret.IsCreatedOrUpdated()");
     }
   });
 
-// TODO: this does not work yet due to functionality in pepr, will be added back in later
-/*
+// Delete the secret from keycloak, and remove the authservice
 When(a.Secret)
   .IsDeleted()
   .WithLabel("pepr.dev/keycloak", "createclient")
   .Then(async request => {
     try {
-      const kcAPI = new KcAPI(
-        getKeyclockBaseURL(request.OldResource.data.domain)
-      );
-      kcAPI.DeleteClient(
-        request.OldResource.data.id,
-        request.OldResource.data.realm
+      const kcAPI = new KcAPI(getKeyclockBaseURL(request.Raw.data.domain));
+      kcAPI.DeleteClient(request.Raw.data.id, request.Raw.data.realm);
+      const k8sApi = new K8sAPI();
+      await k8sApi.deleteSecret(
+        `${request.Raw.data.name}-client`,
+        request.Raw.metadata.namespace
       );
     } catch (e) {
-      Log.error(`error ${e.stack}`);
+      Log.error(`error ${e}`, "Keycloak.Client.Secret.IsDeleted()");
     }
   });
-*/
