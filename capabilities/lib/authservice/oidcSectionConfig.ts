@@ -41,12 +41,12 @@ export class LogoutConfig {
   constructor(json: any) {
     if (!json.path || json.path.length < 1) {
       throw new TypeError(
-        "path is required and must be at least 1 character long"
+        "path is required and must be at least 1 character long",
       );
     }
     if (!json.redirect_uri || json.redirect_uri.length < 1) {
       throw new TypeError(
-        "redirect_uri is required and must be at least 1 character long"
+        "redirect_uri is required and must be at least 1 character long",
       );
     }
 

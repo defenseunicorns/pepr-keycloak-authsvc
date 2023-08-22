@@ -36,10 +36,10 @@ export class TriggerRule {
 
   constructor(json: any) {
     this.excluded_paths = json.excluded_paths.map(
-      (path: any) => new StringMatch(path)
+      (path: any) => new StringMatch(path),
     );
     this.included_paths = json.included_paths.map(
-      (path: any) => new StringMatch(path)
+      (path: any) => new StringMatch(path),
     );
   }
   toObject(): Record<string, any> {
@@ -162,7 +162,7 @@ export class AuthserviceConfig {
 
     if (json.trigger_rules !== undefined) {
       this.trigger_rules = json.trigger_rules.map(
-        (rule: any) => new TriggerRule(rule)
+        (rule: any) => new TriggerRule(rule),
       );
     }
 

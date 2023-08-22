@@ -60,7 +60,7 @@ test.beforeEach(t => {
 test("AuthServiceSecretBuilder should handle adding a secret correctly", async t => {
   const secrets = await t.context.authServiceSecretBuilder.buildSecretList(
     t.context.testSecret,
-    false
+    false,
   );
 
   t.is(secrets.length, 3);
@@ -76,7 +76,7 @@ test("AuthServiceSecretBuilder should handle deleting a secret correctly", async
 
   const secrets = await t.context.authServiceSecretBuilder.buildSecretList(
     deletedSecret,
-    true
+    true,
   );
 
   t.is(secrets.length, 1);
@@ -90,7 +90,7 @@ test("AuthServiceSecretBuilder should handle sorting secrets correctly", async t
         name: "foo",
       },
     },
-    false
+    false,
   );
 
   t.is(secrets.length, 3);
