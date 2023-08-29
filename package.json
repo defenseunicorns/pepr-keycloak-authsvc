@@ -37,11 +37,11 @@
     "test": "ava"
   },
   "dependencies": {
-     "pepr": "file:../shifting-sands/pepr/pepr-0.0.0-development.tgz"
+    "pepr": "^0.13.0"
   },
   "devDependencies": {
     "ava": "5.3.1",
-    "typescript": "5.1.6"
+    "ts-node": "10.9.1"
   },
   "ava": {
     "extensions": [

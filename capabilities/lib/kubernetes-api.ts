@@ -1,5 +1,4 @@
-import { k8s } from "pepr";
-import { fetchStatus } from "pepr";
+import { fetchStatus, k8s } from "pepr";
 
 export class K8sAPI {
   k8sApi: k8s.CoreV1Api;
