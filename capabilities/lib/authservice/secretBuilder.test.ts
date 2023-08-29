@@ -35,7 +35,15 @@ test.beforeEach(t => {
 
   // mock authservice config
   secretBuilder.getAuthServiceConfig = () => {
-    return Promise.resolve(new AuthserviceConfig({ chains: [] }));
+    return Promise.resolve(
+      new AuthserviceConfig({
+        chains: [],
+        listen_address: "0.0.0.0",
+        listen_port: 8080,
+        log_level: "info",
+        threads: 4,
+      }),
+    );
   };
 
   t.context = {

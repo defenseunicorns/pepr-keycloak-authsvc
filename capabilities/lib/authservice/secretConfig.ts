@@ -20,7 +20,7 @@ export class StringMatch {
       this.regex = json.regex;
     }
   }
-  toObject(): Record<string, any> {
+  toObject() {
     return {
       exact: this.exact,
       prefix: this.prefix,
@@ -42,7 +42,7 @@ export class TriggerRule {
       (path: any) => new StringMatch(path),
     );
   }
-  toObject(): Record<string, any> {
+  toObject() {
     return {
       excluded_paths: this.excluded_paths.map(path => path.toObject()),
       included_paths: this.included_paths.map(path => path.toObject()),
@@ -71,7 +71,7 @@ export class Match {
       throw new TypeError("prefix and equality cannot both be set");
     }
   }
-  toObject(): Record<string, any> {
+  toObject() {
     return {
       header: this.header,
       prefix: this.prefix,
@@ -99,7 +99,7 @@ export class Filter {
     }
   }
 
-  toObject(): Record<string, any> {
+  toObject() {
     const obj: Record<string, any> = {};
 
     if (this.oidc) {
@@ -126,7 +126,7 @@ export class FilterChain {
 
     this.filters = json.filters.map((filter: any) => new Filter(filter));
   }
-  toObject(): Record<string, any> {
+  toObject() {
     return {
       name: this.name,
       match: this.match?.toObject(),
@@ -199,7 +199,7 @@ export class AuthserviceConfig {
     });
   }
 
-  toObject(): Record<string, any> {
+  toObject() {
     return {
       chains: this.chains.map(chain => chain.toObject()),
       listen_address: this.listen_address,
