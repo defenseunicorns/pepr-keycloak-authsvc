@@ -191,10 +191,7 @@ export class AuthserviceConfig {
     if (json.default_oidc_config !== undefined) {
       this.default_oidc_config = new OIDCConfig(json.default_oidc_config);
     }
-
-    if (json.allow_unmatched_requests !== undefined) {
-      this.allow_unmatched_requests = json.allow_unmatched_requests;
-    }
+    this.allow_unmatched_requests = json?.allow_unmatched_requests;
   }
 
   static createSingleChain(input: ChainInput): FilterChain {
