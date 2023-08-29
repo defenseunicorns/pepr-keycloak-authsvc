@@ -1,4 +1,11 @@
-import { OIDCConfig } from "./oidcSectionConfig";
+import { OIDCConfig, OIDCConfigJSON } from "./oidcSectionConfig";
+
+interface StringMatchJSON {
+  exact?: string;
+  prefix?: string;
+  suffix?: string;
+  regex?: string;
+}
 
 export class StringMatch {
   exact?: string;
@@ -6,19 +13,11 @@ export class StringMatch {
   suffix?: string;
   regex?: string;
 
-  constructor(json: any) {
-    if (json.exact !== undefined) {
-      this.exact = json.exact;
-    }
-    if (json.prefix !== undefined) {
-      this.prefix = json.prefix;
-    }
-    if (json.suffix !== undefined) {
-      this.suffix = json.suffix;
-    }
-    if (json.regex !== undefined) {
-      this.regex = json.regex;
-    }
+  constructor(json: StringMatchJSON) {
+    this.exact = json?.exact;
+    this.prefix = json?.prefix;
+    this.suffix = json?.suffix;
+    this.regex = json?.regex;
   }
   toObject() {
     return {
@@ -30,16 +29,21 @@ export class StringMatch {
   }
 }
 
+interface TriggerRuleJSON {
+  excluded_paths: StringMatchJSON[];
+  included_paths: StringMatchJSON[];
+}
+
 export class TriggerRule {
   excluded_paths: StringMatch[];
   included_paths: StringMatch[];
 
-  constructor(json: any) {
+  constructor(json: TriggerRuleJSON) {
     this.excluded_paths = json.excluded_paths.map(
-      (path: any) => new StringMatch(path),
+      path => new StringMatch(path),
     );
     this.included_paths = json.included_paths.map(
-      (path: any) => new StringMatch(path),
+      path => new StringMatch(path),
     );
   }
   toObject() {
@@ -50,20 +54,21 @@ export class TriggerRule {
   }
 }
 
+interface MatchJSON {
+  header: string;
+  prefix?: string;
+  equality?: string;
+}
+
 export class Match {
   header: string;
   prefix?: string;
   equality?: string;
 
-  constructor(json: any) {
+  constructor(json: MatchJSON) {
     this.header = json.header;
-
-    if (json.prefix) {
-      this.prefix = json.prefix;
-    }
-    if (json.equality) {
-      this.equality = json.equality;
-    }
+    this.prefix = json?.prefix;
+    this.equality = json?.equality;
     if (!this.prefix && !this.equality) {
       throw new TypeError("prefix or equality must be set");
     }
@@ -80,11 +85,16 @@ export class Match {
   }
 }
 
+interface FilterJSON {
+  oidc?: OIDCConfigJSON;
+  oidc_override?: OIDCConfigJSON;
+}
+
 export class Filter {
   oidc?: OIDCConfig;
   oidc_override?: OIDCConfig;
 
-  constructor(json: any) {
+  constructor(json: FilterJSON) {
     if (json.oidc) {
       this.oidc = new OIDCConfig(json.oidc);
     }
@@ -100,16 +110,17 @@ export class Filter {
   }
 
   toObject() {
-    const obj: Record<string, any> = {};
-
-    if (this.oidc) {
-      obj.oidc = this.oidc.toObject();
-    }
-    if (this.oidc_override) {
-      obj.oidc_override = this.oidc_override.toObject();
-    }
-    return obj;
+    return {
+      oidc: this.oidc?.toObject(),
+      oidc_override: this.oidc_override?.toObject(),
+    };
   }
+}
+
+interface FilterChainJSON {
+  name: string;
+  match?: MatchJSON;
+  filters: FilterJSON[];
 }
 
 export class FilterChain {
@@ -117,14 +128,14 @@ export class FilterChain {
   match?: Match;
   filters: Filter[];
 
-  constructor(json: any) {
+  constructor(json: FilterChainJSON) {
     this.name = json.name;
 
     if (json.match) {
       this.match = new Match(json.match);
     }
 
-    this.filters = json.filters.map((filter: any) => new Filter(filter));
+    this.filters = json.filters.map(filter => new Filter(filter));
   }
   toObject() {
     return {
@@ -143,6 +154,17 @@ export interface ChainInput {
   id: string;
 }
 
+interface AuthserviceConfigJSON {
+  chains: FilterChainJSON[];
+  listen_address: string;
+  listen_port: number;
+  log_level: string;
+  threads: number;
+  trigger_rules?: TriggerRuleJSON[];
+  default_oidc_config?: OIDCConfigJSON;
+  allow_unmatched_requests?: boolean;
+}
+
 export class AuthserviceConfig {
   chains: FilterChain[];
   listen_address: string;
@@ -153,8 +175,8 @@ export class AuthserviceConfig {
   default_oidc_config?: OIDCConfig;
   allow_unmatched_requests?: boolean;
 
-  constructor(json: any) {
-    this.chains = json.chains.map((chain: any) => new FilterChain(chain));
+  constructor(json: AuthserviceConfigJSON) {
+    this.chains = json.chains.map(chain => new FilterChain(chain));
     this.listen_address = json.listen_address;
     this.listen_port = json.listen_port;
     this.log_level = json.log_level;
@@ -162,7 +184,7 @@ export class AuthserviceConfig {
 
     if (json.trigger_rules !== undefined) {
       this.trigger_rules = json.trigger_rules.map(
-        (rule: any) => new TriggerRule(rule),
+        rule => new TriggerRule(rule),
       );
     }
 
