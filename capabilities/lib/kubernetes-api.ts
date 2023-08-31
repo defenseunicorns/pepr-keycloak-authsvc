@@ -77,7 +77,6 @@ export class K8sAPI {
     name: string,
     namespace: string,
     secretData: Record<string, string>,
-    ownerReferences: k8s.V1OwnerReference[],
     labels?: { [key: string]: string },
   ) {
     // Prepare the Secret object
@@ -88,7 +87,6 @@ export class K8sAPI {
         name: name,
         namespace: namespace,
         labels,
-        ownerReferences: ownerReferences,
       },
       data: {},
     };
