@@ -1,4 +1,4 @@
-import { Capability, Log, a, k8s } from "pepr";
+import { Capability, Log, a } from "pepr";
 import { KcAPI } from "./lib/kc-api";
 import { K8sAPI } from "./lib/kubernetes-api";
 import { OidcClientK8sSecretData } from "./lib/types";
@@ -86,20 +86,11 @@ When(a.Secret)
         redirectUri: redirectUri,
       };
 
-      // will trigger deletion of the authservice secret
-      const ownerReference: k8s.V1OwnerReference = {
-        apiVersion: request.Raw.apiVersion,
-        uid: request.Raw.metadata.uid,
-        kind: request.Raw.kind,
-        name: request.Raw.metadata.name,
-      };
-
       const k8sApi = new K8sAPI();
       await k8sApi.upsertSecret(
         `${newSecret.name}-client`,
         request.Raw.metadata.namespace,
         newSecret as unknown as Record<string, string>,
-        [ownerReference],
         { "pepr.dev/keycloak": "oidcconfig" },
       );
     } catch (e) {
@@ -117,6 +108,11 @@ When(a.Secret)
     try {
       const kcAPI = new KcAPI(getKeyclockBaseURL(request.Raw.data.domain));
       kcAPI.DeleteClient(request.Raw.data.id, request.Raw.data.realm);
+      const k8sApi = new K8sAPI();
+      await k8sApi.deleteSecret(
+        `${request.Raw.data.name}-client`,
+        request.Raw.metadata.namespace,
+      );
     } catch (e) {
       Log.error(`error ${e}`, "Keycloak.Client.Secret.IsDeleted()");
     }
