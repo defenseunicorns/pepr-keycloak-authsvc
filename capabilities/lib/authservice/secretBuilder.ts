@@ -57,9 +57,8 @@ export class AuthServiceSecretBuilder {
     isDelete: boolean,
     labelSelector = "pepr.dev/keycloak=oidcconfig",
   ): Promise<k8s.V1Secret[]> {
-    let missionSecrets = await this.k8sApi.getSecretsByLabelSelector(
-      labelSelector,
-    );
+    let missionSecrets =
+      await this.k8sApi.getSecretsByLabelSelector(labelSelector);
 
     function isEqual(s: k8s.V1Secret) {
       return (secret: k8s.V1Secret) =>
