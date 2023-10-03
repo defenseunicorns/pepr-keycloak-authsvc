@@ -32,17 +32,16 @@
     }
   },
   "scripts": {
-    "build": "rm -fr dist && pepr build -e index.ts",
+    "build": "rm -fr dist && npx pepr build -e index.ts",
     "k3d-setup": "k3d cluster delete pepr-dev && k3d cluster create pepr-dev --k3s-arg '--debug@server:0' -p '443:443@loadbalancer' -p '80:80@loadbalancer' --k3s-arg='--disable=traefik@server:0'",
     "test": "ava"
   },
   "dependencies": {
-    "pepr": "0.x.x"
+    "pepr": "^0.14.0"
   },
   "devDependencies": {
     "ava": "5.3.1",
-    "ts-node": "10.9.1",
-    "typescript": "5.0.4"
+    "ts-node": "10.9.1"
   },
   "ava": {
     "extensions": [

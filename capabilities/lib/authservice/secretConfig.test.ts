@@ -31,15 +31,13 @@ test("AuthserviceConfig should handle input correctly", t => {
   t.is(oidcConfig.client_secret, chainInput.secret);
   t.is(oidcConfig.cookie_name_prefix, chainInput.name);
 
-  const json = {
-    chains: [filterChain.toObject()],
+  const authserviceConfig = new AuthserviceConfig({
+    chains: [filterChain],
     listen_address: "localhost",
     listen_port: 8080,
     log_level: "debug",
     threads: 1,
-  };
-
-  const authserviceConfig = new AuthserviceConfig(json);
+  });
 
   // Check AuthserviceConfig properties
   t.is(authserviceConfig.chains.length, 1);

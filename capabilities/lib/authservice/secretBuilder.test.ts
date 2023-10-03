@@ -1,13 +1,13 @@
 import anyTest, { TestFn } from "ava";
 
 import { AuthServiceSecretBuilder } from "./secretBuilder";
-import { V1Secret } from "@kubernetes/client-node";
+import { k8s } from "pepr";
 import { K8sAPI } from "../kubernetes-api";
 import { AuthserviceConfig } from "./secretConfig";
 
 const test = anyTest as TestFn<{
   authServiceSecretBuilder: AuthServiceSecretBuilder;
-  testSecret: V1Secret;
+  testSecret: k8s.V1Secret;
 }>;
 
 test.beforeEach(t => {
@@ -35,7 +35,15 @@ test.beforeEach(t => {
 
   // mock authservice config
   secretBuilder.getAuthServiceConfig = () => {
-    return Promise.resolve(new AuthserviceConfig({ chains: [] }));
+    return Promise.resolve(
+      new AuthserviceConfig({
+        chains: [],
+        listen_address: "0.0.0.0",
+        listen_port: 8080,
+        log_level: "info",
+        threads: 4,
+      }),
+    );
   };
 
   t.context = {
@@ -60,14 +68,14 @@ test.beforeEach(t => {
 test("AuthServiceSecretBuilder should handle adding a secret correctly", async t => {
   const secrets = await t.context.authServiceSecretBuilder.buildSecretList(
     t.context.testSecret,
-    false
+    false,
   );
 
   t.is(secrets.length, 3);
 });
 
 test("AuthServiceSecretBuilder should handle deleting a secret correctly", async t => {
-  const deletedSecret: V1Secret = {
+  const deletedSecret: k8s.V1Secret = {
     metadata: {
       namespace: "default",
       name: "foo",
@@ -76,7 +84,7 @@ test("AuthServiceSecretBuilder should handle deleting a secret correctly", async
 
   const secrets = await t.context.authServiceSecretBuilder.buildSecretList(
     deletedSecret,
-    true
+    true,
   );
 
   t.is(secrets.length, 1);
@@ -90,7 +98,7 @@ test("AuthServiceSecretBuilder should handle sorting secrets correctly", async t
         name: "foo",
       },
     },
-    false
+    false,
   );
 
   t.is(secrets.length, 3);

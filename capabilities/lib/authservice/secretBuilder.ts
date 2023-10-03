@@ -1,12 +1,11 @@
-import { Log } from "pepr";
+import { Log, k8s } from "pepr";
 import { K8sAPI } from "../kubernetes-api";
 import { AuthserviceConfig } from "./secretConfig";
-import { V1Secret } from "@kubernetes/client-node";
 import { createHash } from "crypto";
 import { ascend, path, reject, sortWith } from "ramda";
 
 interface UpdateEvent {
-  secret: V1Secret;
+  secret: k8s.V1Secret;
   isDelete: boolean;
 }
 
@@ -21,7 +20,7 @@ export class AuthServiceSecretBuilder {
     this.k8sApi = k8sApi;
   }
 
-  private decodeBase64(secret: V1Secret, key: string): string {
+  private decodeBase64(secret: k8s.V1Secret, key: string): string {
     if (!secret.data) {
       throw new Error("Data is missing in secret");
     }
@@ -31,19 +30,19 @@ export class AuthServiceSecretBuilder {
     return Buffer.from(secret.data[key], "base64").toString("utf-8");
   }
 
-  private sortSecrets(secrets: V1Secret[]): V1Secret[] {
+  private sortSecrets(secrets: k8s.V1Secret[]): k8s.V1Secret[] {
     return sortWith([
       ascend(path(["metadata", "name"])),
       ascend(path(["metadata", "namespace"])),
     ])(secrets);
   }
 
-  secretToAuthServiceConfig(secret: V1Secret): AuthserviceConfig {
+  secretToAuthServiceConfig(secret: k8s.V1Secret): AuthserviceConfig {
     const secretData = this.k8sApi.getSecretValues(secret, [
       this.authServiceConfigFileName,
     ]);
     return new AuthserviceConfig(
-      JSON.parse(secretData[this.authServiceConfigFileName])
+      JSON.parse(secretData[this.authServiceConfigFileName]),
     );
   }
 
@@ -54,16 +53,15 @@ export class AuthServiceSecretBuilder {
   }
 
   async buildSecretList(
-    updatedSecret: V1Secret,
+    updatedSecret: k8s.V1Secret,
     isDelete: boolean,
-    labelSelector = "pepr.dev/keycloak=oidcconfig"
-  ): Promise<V1Secret[]> {
-    let missionSecrets = await this.k8sApi.getSecretsByLabelSelector(
-      labelSelector
-    );
+    labelSelector = "pepr.dev/keycloak=oidcconfig",
+  ): Promise<k8s.V1Secret[]> {
+    let missionSecrets =
+      await this.k8sApi.getSecretsByLabelSelector(labelSelector);
 
-    function isEqual(s: V1Secret) {
-      return (secret: V1Secret) =>
+    function isEqual(s: k8s.V1Secret) {
+      return (secret: k8s.V1Secret) =>
         secret.metadata.name === s?.metadata?.name &&
         secret.metadata.namespace === s?.metadata?.namespace;
     }
@@ -83,14 +81,14 @@ export class AuthServiceSecretBuilder {
   async getAuthServiceConfig(): Promise<AuthserviceConfig> {
     const response = await this.k8sApi.k8sApi.readNamespacedSecret(
       this.authServiceSecretName,
-      this.authServiceNamespace
+      this.authServiceNamespace,
     );
 
     return this.secretToAuthServiceConfig(response.body);
   }
 
   async buildAuthServiceConfig(
-    secrets: V1Secret[]
+    secrets: k8s.V1Secret[],
   ): Promise<AuthserviceConfig> {
     const authServiceConfig = await this.getAuthServiceConfig();
 
@@ -116,7 +114,7 @@ export class AuthServiceSecretBuilder {
           hostname: "localhost.localhost",
           redirect_uri: "https://localhost.localhost",
           secret: "placeholderSecret",
-        })
+        }),
       );
     }
 
@@ -132,7 +130,7 @@ export class AuthServiceSecretBuilder {
       this.authServiceNamespace,
       {
         [this.authServiceConfigFileName]: config,
-      }
+      },
     );
 
     if (didItWork) {
@@ -140,12 +138,12 @@ export class AuthServiceSecretBuilder {
       await this.k8sApi.checksumDeployment(
         "authservice",
         "authservice",
-        configHash
+        configHash,
       );
     } else {
       Log.error(
         "Patching AuthService Secret failed (out of sync)",
-        "updateAuthServiceSecret"
+        "updateAuthServiceSecret",
       );
     }
   }

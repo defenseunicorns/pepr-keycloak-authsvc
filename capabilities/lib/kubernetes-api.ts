@@ -1,28 +1,19 @@
-import {
-  AppsV1Api,
-  CoreV1Api,
-  KubeConfig,
-  V1Secret,
-} from "@kubernetes/client-node";
-
-import { k8s } from "pepr";
-
-import { fetchStatus } from "pepr";
+import { fetchStatus, k8s } from "pepr";
 
 export class K8sAPI {
-  k8sApi: CoreV1Api;
-  k8sAppsV1Api: AppsV1Api;
+  k8sApi: k8s.CoreV1Api;
+  k8sAppsV1Api: k8s.AppsV1Api;
 
   constructor() {
-    const kc = new KubeConfig();
+    const kc = new k8s.KubeConfig();
     kc.loadFromDefault();
-    this.k8sApi = kc.makeApiClient(CoreV1Api);
-    this.k8sAppsV1Api = kc.makeApiClient(AppsV1Api);
+    this.k8sApi = kc.makeApiClient(k8s.CoreV1Api);
+    this.k8sAppsV1Api = kc.makeApiClient(k8s.AppsV1Api);
   }
 
   getSecretValues(
-    inputSecret: V1Secret,
-    keys: string[]
+    inputSecret: k8s.V1Secret,
+    keys: string[],
   ): { [key: string]: string } {
     const secret = inputSecret.data;
     const secretValues: { [key: string]: string } = {};
@@ -32,19 +23,19 @@ export class K8sAPI {
         if (secret[key]) {
           // Decode the base64 encoded secret value
           const decodedValue = Buffer.from(secret[key], "base64").toString(
-            "utf-8"
+            "utf-8",
           );
           secretValues[key] = decodedValue;
         } else {
           throw new Error(
-            `Could not find key '${key}' in the secret ${inputSecret.metadata?.name}`
+            `Could not find key '${key}' in the secret ${inputSecret.metadata?.name}`,
           );
         }
       });
       return secretValues;
     }
     throw new Error(
-      `Could not retrieve the secret ${inputSecret.metadata?.name}`
+      `Could not retrieve the secret ${inputSecret.metadata?.name}`,
     );
   }
 
@@ -66,16 +57,18 @@ export class K8sAPI {
       undefined,
       undefined,
       undefined,
-      { headers: { "content-type": "application/json-patch+json" } }
+      { headers: { "content-type": "application/json-patch+json" } },
     );
   }
 
-  async getSecretsByLabelSelector(labelSelector: string): Promise<V1Secret[]> {
+  async getSecretsByLabelSelector(
+    labelSelector: string,
+  ): Promise<k8s.V1Secret[]> {
     const secrets = await this.k8sApi.listSecretForAllNamespaces(
       null,
       null,
       null,
-      labelSelector
+      labelSelector,
     );
     return secrets?.body?.items || [];
   }
@@ -84,10 +77,10 @@ export class K8sAPI {
     name: string,
     namespace: string,
     secretData: Record<string, string>,
-    labels?: { [key: string]: string }
+    labels?: { [key: string]: string },
   ) {
     // Prepare the Secret object
-    const secret: V1Secret = {
+    const secret: k8s.V1Secret = {
       apiVersion: "v1",
       kind: "Secret",
       metadata: {
@@ -122,7 +115,7 @@ export class K8sAPI {
   async patchSecret(
     name: string,
     namespace: string,
-    secretData: Record<string, string>
+    secretData: Record<string, string>,
   ): Promise<boolean> {
     const data = {};
 
@@ -140,7 +133,7 @@ export class K8sAPI {
         undefined,
         undefined,
         undefined,
-        { headers: { "content-type": "application/merge-patch+json" } }
+        { headers: { "content-type": "application/merge-patch+json" } },
       );
       return true;
     } catch (e) {

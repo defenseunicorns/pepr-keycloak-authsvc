@@ -1,8 +1,44 @@
+interface RedisConfigJSON {
+  server_uri: string;
+}
+
+interface LogoutConfigJSON {
+  path: string;
+  redirect_uri: string;
+}
+
+interface JwksFetcherConfigJSON {
+  jwks_uri: string;
+  periodic_fetch_interval_sec?: number;
+  skip_verify_peer_cert?: boolean;
+}
+
+export interface OIDCConfigJSON {
+  authorization_uri?: string;
+  token_uri?: string;
+  callback_uri: string;
+  client_id: string;
+  client_secret: string;
+  scopes?: string[];
+  cookie_name_prefix?: string;
+  id_token?: IdTokenConfig;
+  access_token?: AccessTokenConfig;
+  logout?: LogoutConfigJSON;
+  jwks?: string;
+  jwks_fetcher?: JwksFetcherConfigJSON;
+  absolute_session_timeout?: number;
+  idle_session_timeout?: number;
+  trusted_certificate_authority?: string;
+  proxy_uri?: string;
+  redis_session_store_config?: RedisConfig;
+  skip_verify_peer_cert?: boolean;
+}
+
 export class IdTokenConfig {
   header = "Authorization";
   preamble = "Bearer";
 
-  toObject(): Record<string, any> {
+  toObject() {
     return {
       header: this?.header,
       preamble: this?.preamble,
@@ -13,7 +49,7 @@ export class IdTokenConfig {
 export class AccessTokenConfig {
   header = "JWT";
 
-  toObject(): Record<string, any> {
+  toObject(): Record<string, string> {
     return {
       header: this.header,
     };
@@ -23,11 +59,11 @@ export class AccessTokenConfig {
 export class RedisConfig {
   server_uri: string;
 
-  constructor(json?: any) {
+  constructor(json?: RedisConfigJSON) {
     new URL(json.server_uri);
     this.server_uri = json.server_uri;
   }
-  toObject(): Record<string, any> {
+  toObject(): Record<string, string> {
     return {
       server_uri: this.server_uri,
     };
@@ -38,15 +74,15 @@ export class LogoutConfig {
   path: string;
   redirect_uri: string;
 
-  constructor(json: any) {
+  constructor(json: LogoutConfigJSON) {
     if (!json.path || json.path.length < 1) {
       throw new TypeError(
-        "path is required and must be at least 1 character long"
+        "path is required and must be at least 1 character long",
       );
     }
     if (!json.redirect_uri || json.redirect_uri.length < 1) {
       throw new TypeError(
-        "redirect_uri is required and must be at least 1 character long"
+        "redirect_uri is required and must be at least 1 character long",
       );
     }
 
@@ -56,7 +92,7 @@ export class LogoutConfig {
     this.path = json.path;
     this.redirect_uri = json.redirect_uri;
   }
-  toObject(): Record<string, any> {
+  toObject() {
     return {
       path: this.path,
       redirect_uri: this.redirect_uri,
@@ -69,7 +105,7 @@ export class JwksFetcherConfig {
   periodic_fetch_interval_sec?: number;
   skip_verify_peer_cert?: boolean;
 
-  constructor(json: any) {
+  constructor(json: JwksFetcherConfigJSON) {
     if (!json.jwks_uri) {
       throw new TypeError("jwks_uri is required");
     }
@@ -77,14 +113,10 @@ export class JwksFetcherConfig {
     new URL(json.jwks_uri);
 
     this.jwks_uri = json.jwks_uri;
-    if (json.periodic_fetch_interval_sec) {
-      this.periodic_fetch_interval_sec = json.periodic_fetch_interval_sec;
-    }
-    if (json.skip_verify_peer_cert) {
-      this.skip_verify_peer_cert = json.skip_verify_peer_cert;
-    }
+    this.periodic_fetch_interval_sec = json?.periodic_fetch_interval_sec;
+    this.skip_verify_peer_cert = json?.skip_verify_peer_cert;
   }
-  toObject(): Record<string, any> {
+  toObject() {
     return {
       jwks_uri: this.jwks_uri,
       periodic_fetch_interval_sec: this.periodic_fetch_interval_sec,
@@ -94,8 +126,8 @@ export class JwksFetcherConfig {
 }
 
 export class OIDCConfig {
-  authorization_uri: string;
-  token_uri: string;
+  authorization_uri?: string;
+  token_uri?: string;
   callback_uri: string;
   client_id: string;
   client_secret: string;
@@ -113,65 +145,45 @@ export class OIDCConfig {
   redis_session_store_config?: RedisConfig;
   skip_verify_peer_cert?: boolean;
 
-  constructor(json: any) {
-    this.authorization_uri = json.authorization_uri;
-    this.token_uri = json.token_uri;
+  constructor(json: OIDCConfigJSON) {
+    this.authorization_uri = json?.authorization_uri;
+    this.token_uri = json?.token_uri;
     this.callback_uri = json.callback_uri;
     this.client_id = json.client_id;
     this.client_secret = json.client_secret;
-    if (json.scopes) {
-      this.scopes = json.scopes;
-    }
+    this.scopes = json?.scopes;
 
-    if ("cookie_name_prefix" in json) {
-      this.cookie_name_prefix = json.cookie_name_prefix;
-    }
-
-    this.id_token = json.id_token;
-    this.access_token = json.access_token;
+    this.cookie_name_prefix = json?.cookie_name_prefix;
+    this.id_token = json?.id_token;
+    this.access_token = json?.access_token;
 
     if (json.logout) {
       this.logout = new LogoutConfig(json.logout);
     }
 
-    if (json.jwks) {
-      this.jwks = json.jwks;
-    }
+    this.jwks = json?.jwks;
 
     if (json.jwks_fetcher) {
       this.jwks_fetcher = new JwksFetcherConfig(json.jwks_fetcher);
     }
 
-    if (json.absolute_session_timeout) {
-      this.absolute_session_timeout = json.absolute_session_timeout;
-    }
-
-    if (json.idle_session_timeout) {
-      this.idle_session_timeout = json.idle_session_timeout;
-    }
-
-    if (json.trusted_certificate_authority) {
-      this.trusted_certificate_authority = json.trusted_certificate_authority;
-    }
+    this.absolute_session_timeout = json?.absolute_session_timeout;
+    this.idle_session_timeout = json?.idle_session_timeout;
+    this.trusted_certificate_authority = json?.trusted_certificate_authority;
 
     if (json.proxy_uri) {
       new URL(json.proxy_uri);
       this.proxy_uri = json.proxy_uri;
     }
 
-    if (json.redis_session_store_config) {
-      this.redis_session_store_config = json.redis_session_store_config;
-    }
-
-    if (json.skip_verify_peer_cert) {
-      this.skip_verify_peer_cert = json.skip_verify_peer_cert;
-    }
+    this.redis_session_store_config = json?.redis_session_store_config;
+    this.skip_verify_peer_cert = json?.skip_verify_peer_cert;
   }
 
-  toObject(): Record<string, any> {
+  toObject() {
     return {
-      authorization_uri: this.authorization_uri,
-      token_uri: this.token_uri,
+      authorization_uri: this?.authorization_uri,
+      token_uri: this?.token_uri,
       callback_uri: this.callback_uri,
       client_id: this.client_id,
       client_secret: this.client_secret,
