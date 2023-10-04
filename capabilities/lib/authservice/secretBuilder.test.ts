@@ -1,20 +1,22 @@
 import anyTest, { TestFn } from "ava";
 
 import { AuthServiceSecretBuilder } from "./secretBuilder";
-import { k8s } from "pepr";
-import { K8sAPI } from "../kubernetes-api";
+import { kind } from "pepr";
+// import { K8sAPI } from "../kubernetes-api";
 import { AuthserviceConfig } from "./secretConfig";
+
+import { chance } from "../secretV2";
 
 const test = anyTest as TestFn<{
   authServiceSecretBuilder: AuthServiceSecretBuilder;
-  testSecret: k8s.V1Secret;
+  testSecret: kind.Secret;
 }>;
 
 test.beforeEach(t => {
-  const k8sApi = new K8sAPI();
+  // const k8sApi = new K8sAPI();
 
   // mock function to return secrets
-  k8sApi.getSecretsByLabelSelector = () => {
+  chance.getSecretsByLabelSelector = () => {
     return Promise.resolve([
       {
         metadata: {
@@ -31,7 +33,8 @@ test.beforeEach(t => {
     ]);
   };
 
-  const secretBuilder = new AuthServiceSecretBuilder(k8sApi);
+  // const secretBuilder = new AuthServiceSecretBuilder(k8sApi);
+  const secretBuilder = new AuthServiceSecretBuilder();
 
   // mock authservice config
   secretBuilder.getAuthServiceConfig = () => {
@@ -75,7 +78,7 @@ test("AuthServiceSecretBuilder should handle adding a secret correctly", async t
 });
 
 test("AuthServiceSecretBuilder should handle deleting a secret correctly", async t => {
-  const deletedSecret: k8s.V1Secret = {
+  const deletedSecret: kind.Secret = {
     metadata: {
       namespace: "default",
       name: "foo",

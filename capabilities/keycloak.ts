@@ -1,7 +1,8 @@
 import { Capability, Log, a } from "pepr";
 import { KcAPI } from "./lib/kc-api";
-import { K8sAPI } from "./lib/kubernetes-api";
+// import { K8sAPI } from "./lib/kubernetes-api";
 import { OidcClientK8sSecretData } from "./lib/types";
+import { chance } from "./lib/secretV2";
 
 export const Keycloak = new Capability({
   name: "Keycloak",
@@ -10,6 +11,14 @@ export const Keycloak = new Capability({
 });
 
 const { When } = Keycloak;
+const { Store } = Keycloak;
+Store.onReady(async data => {
+  const namespace = "keycloak";
+  const name = "keycloak-env";
+  const responseSecret = await chance.getSecret(name, namespace);
+  const username = responseSecret.data["KEYCLOAK_ADMIN"];
+  const password = responseSecret.data["KEYCLOAK_ADMIN_PASSWORD"];
+});
 
 function getKeyclockBaseURL(domain: string) {
   return `https://keycloak.${domain}/auth`;
@@ -86,16 +95,25 @@ When(a.Secret)
         redirectUri: redirectUri,
       };
 
-      const k8sApi = new K8sAPI();
-      await k8sApi.upsertSecret(
-        `${newSecret.name}-client`,
-        request.Raw.metadata.namespace,
-        newSecret as unknown as Record<string, string>,
-        { "pepr.dev/keycloak": "oidcconfig" },
-      );
+      // const k8sApi = new K8sAPI();
+      // await k8sApi.upsertSecret(
+      //   `${newSecret.name}-client`,
+      //   request.Raw.metadata.namespace,
+      //   newSecret as unknown as Record<string, string>,
+      //   { "pepr.dev/keycloak": "oidcconfig" },
+      // );
+
+      await chance.applySecret({
+        metadata: {
+          name: `${newSecret.name}-client`,
+          namespace: request.Raw.metadata.namespace,
+          labels: { "pepr.dev/keycloak": "oidcconfig" },
+        },
+        data: newSecret as unknown as Record<string, string>,
+      });
     } catch (e) {
-      return request.Deny(`error ${e}`);
       Log.error(`error ${e}`, "Keycloak.Client.Secret.IsCreatedOrUpdated()");
+      return request.Deny(`error ${e}`);
     }
     return request.Approve();
   });
@@ -108,8 +126,13 @@ When(a.Secret)
     try {
       const kcAPI = new KcAPI(getKeyclockBaseURL(request.Raw.data.domain));
       kcAPI.DeleteClient(request.Raw.data.id, request.Raw.data.realm);
-      const k8sApi = new K8sAPI();
-      await k8sApi.deleteSecret(
+      // const k8sApi = new K8sAPI();
+      // await k8sApi.deleteSecret(
+      //   `${request.Raw.data.name}-client`,
+      //   request.Raw.metadata.namespace,
+      // );
+
+      await chance.deleteSecret(
         `${request.Raw.data.name}-client`,
         request.Raw.metadata.namespace,
       );

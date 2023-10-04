@@ -1,5 +1,6 @@
-import { K8sAPI } from "./kubernetes-api";
+// import { K8sAPI } from "./kubernetes-api";
 import { fetch, fetchStatus } from "pepr";
+import { chance } from "./secretV2";
 
 export interface Client {
   clientId: string;
@@ -19,7 +20,7 @@ export interface OpenIdData {
 export class KcAPI {
   keycloakBaseUrl: string;
   token: string;
-  k8sApi: K8sAPI;
+  // k8sApi: K8sAPI;
 
   constructor(keycloakBaseUrl: string) {
     this.keycloakBaseUrl = keycloakBaseUrl;
@@ -30,24 +31,11 @@ export class KcAPI {
       return;
     }
 
-    // XXX: BDW: hard coded, but this is where it's stored in bigbang.
-    // TODO: extract this to config
     const namespace = "keycloak";
     const name = "keycloak-env";
-
-    this.k8sApi = new K8sAPI();
-    const responseSecret = await this.k8sApi.k8sApi.readNamespacedSecret(
-      name,
-      namespace,
-    );
-    const existingSecret = responseSecret.body;
-    const creds = this.k8sApi.getSecretValues(existingSecret, [
-      "KEYCLOAK_ADMIN_PASSWORD",
-      "KEYCLOAK_ADMIN",
-    ]);
-
-    const username = creds["KEYCLOAK_ADMIN"];
-    const password = creds["KEYCLOAK_ADMIN_PASSWORD"];
+    const responseSecret = await chance.getSecret(name, namespace);
+    const username = responseSecret.data["KEYCLOAK_ADMIN"];
+    const password = responseSecret.data["KEYCLOAK_ADMIN_PASSWORD"];
 
     interface accessToken {
       access_token: string;
