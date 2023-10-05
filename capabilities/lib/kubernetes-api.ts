@@ -61,7 +61,7 @@ export class K8sAPI {
 }
 
 // ToDo: Deep copy rather than copy in place
-function transformToSecret(secret: kind.Secret) {
+export function transformToSecret(secret: kind.Secret) {
   if (!secret.data) {
     throw new Error("Data is missing in secret");
   }
@@ -73,7 +73,7 @@ function transformToSecret(secret: kind.Secret) {
   }
 }
 
-function transformFromSecret(secret: kind.Secret) {
+export function transformFromSecret(secret: kind.Secret) {
   if (!secret.data) {
     throw new Error("Data is missing in secret");
   }
@@ -84,6 +84,36 @@ function transformFromSecret(secret: kind.Secret) {
     secret.data[key] = Buffer.from(secret.data[key], "base64").toString(
       "utf-8",
     );
+  }
+  return secret;
+}
+
+export function transformBinaryToUTF8(secret: kind.Secret) {
+  if (!secret.data) {
+    throw new Error("Data is missing in secret");
+  }
+  for (const key in secret.data) {
+    if (!secret.data[key]) {
+      throw new Error(`Key ${key} is missing in secret`);
+    }
+
+    const sanitizedBinary = secret.data[key].replace(/\s/g, "");
+
+    // Convert the sanitized binary string to a Uint8Array
+    const binaryArray = new Uint8Array(sanitizedBinary.length / 8);
+    for (let i = 0; i < sanitizedBinary.length; i += 8) {
+      const binaryChunk = sanitizedBinary.substr(i, 8);
+      const decimalValue = parseInt(binaryChunk, 2);
+      binaryArray[i / 8] = decimalValue;
+    }
+
+    // Create a TextDecoder instance for UTF-8 encoding
+    const textDecoder = new TextDecoder("utf-8");
+
+    // Decode the binary data to a UTF-8 string
+    const utf8String = textDecoder.decode(binaryArray);
+
+    secret.data[key] = utf8String;
   }
   return secret;
 }

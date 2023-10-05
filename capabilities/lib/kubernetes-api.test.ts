@@ -1,6 +1,11 @@
 import anyTest, { TestFn } from "ava";
 
-import { K8sAPI } from "./kubernetes-api";
+import {
+  K8sAPI,
+  transformBinaryToUTF8,
+  transformFromSecret,
+  transformToSecret,
+} from "./kubernetes-api";
 import { kind } from "pepr";
 
 // Global Test Variables
@@ -117,7 +122,7 @@ test("Test getSecretsByLabelSelector functionality for when labelSelector is nul
 test("Test applySecret functionality for successfully creating a new secret", async t => {
   const applySecretResponse = await K8sAPI.applySecret({
     metadata: {
-      name: "new-secret-test",
+      name: "secret-test-value",
       namespace: namespace,
       labels: { "pepr.dev/keycloak": "testlabel" },
     },
@@ -141,7 +146,7 @@ test("Test applySecret functionality for successfully creating a new secret", as
   );
 
   // Next need to get that secret to verify it was successfully created
-  const newSecret = await K8sAPI.getSecret("new-secret-test", namespace);
+  const newSecret = await K8sAPI.getSecret("secret-test-value", namespace);
   t.truthy(newSecret.data, "Response should not be null");
   t.is(
     newSecret.metadata.labels["pepr.dev/keycloak"],
@@ -200,7 +205,7 @@ test("Test deleteSecret functionality for successfully deleting a secret", async
   // First Create a new test secret
   await K8sAPI.applySecret({
     metadata: {
-      name: "new-secret-test",
+      name: "secret-test-value",
       namespace: namespace,
       labels: { "pepr.dev/keycloak": "testlabel" },
     },
@@ -208,11 +213,11 @@ test("Test deleteSecret functionality for successfully deleting a secret", async
   });
 
   // Next delete that secret
-  await K8sAPI.deleteSecret("new-secret-test", namespace);
+  await K8sAPI.deleteSecret("secret-test-value", namespace);
 
   // Then attempt to retrieve that secret
   try {
-    await K8sAPI.getSecret("new-secret-test", namespace);
+    await K8sAPI.getSecret("secret-test-value", namespace);
   } catch (e) {
     t.true(e instanceof Object, "There was no Secret to retrieve");
   }
@@ -225,4 +230,91 @@ test("Test deleteSecret functionality for secret that doesn't exist", async t =>
   } catch (e) {
     t.fail();
   }
+});
+
+/*
+    Kubernetes-api transformToSecret, transformBinaryToUTF8, and transformFromSecret external Function tests
+*/
+test("Test transformToSecret functionality", async t => {
+  // Create basic Secret for test
+  const secret: kind.Secret = {
+    apiVersion: "v1",
+    kind: "Secret",
+    metadata: {
+      name: "secret-name",
+      namespace: "secret-namespace",
+      labels: {
+        "pepr.dev/keycloak": "testlabel",
+      },
+    },
+    data: {
+      testField: "testfield",
+    },
+  };
+
+  transformToSecret(secret);
+
+  t.truthy(secret);
+  // base64 encoded string: 'testfield'
+  t.is(secret.data["testField"], "dGVzdGZpZWxk");
+});
+
+test("Test transformFromSecret functionality with standard base64 encoded data", async t => {
+  // Create basic Secret for test
+  const secret: kind.Secret = {
+    apiVersion: "v1",
+    kind: "Secret",
+    metadata: {
+      name: "secret-name",
+      namespace: "secret-namespace",
+      labels: {
+        "pepr.dev/keycloak": "testlabel",
+      },
+    },
+    data: {
+      // base64 encoded string: 'testfield'
+      testField: "dGVzdGZpZWxk",
+      // base64 encoded string: 'anotherTestField'
+      anotherTestField: "YW5vdGhlclRlc3RGaWVsZA==",
+    },
+  };
+
+  const transformedSecret = await transformFromSecret(secret);
+
+  t.truthy(transformedSecret);
+  t.is(transformedSecret.metadata["name"], "secret-name");
+  t.is(transformedSecret.metadata["namespace"], "secret-namespace");
+  t.is(transformedSecret.data["testField"], "testfield");
+  t.is(transformedSecret.data["anotherTestField"], "anotherTestField");
+});
+
+test("Test transformBinaryToUTF8 functionality with binary data", async t => {
+  // Create basic Secret for test
+  const secret: kind.Secret = {
+    apiVersion: "v1",
+    kind: "Secret",
+    metadata: {
+      name: "secret-name",
+      namespace: "secret-namespace",
+      labels: {
+        "pepr.dev/keycloak": "testlabel",
+      },
+    },
+    data: {
+      // binary string: 'testfield'
+      testField:
+        "01110100 01100101 01110011 01110100 01100110 01101001 01100101 01101100 01100100",
+      // binary string: 'anotherTestField'
+      anotherTestField:
+        "01100001 01101110 01101111 01110100 01101000 01100101 01110010 01010100 01100101 01110011 01110100 01000110 01101001 01100101 01101100 01100100",
+    },
+  };
+
+  const transformedSecret = await transformBinaryToUTF8(secret);
+
+  t.truthy(transformedSecret);
+  t.is(transformedSecret.metadata["name"], "secret-name");
+  t.is(transformedSecret.metadata["namespace"], "secret-namespace");
+  t.is(transformedSecret.data["testField"], "testfield");
+  t.is(transformedSecret.data["anotherTestField"], "anotherTestField");
 });
