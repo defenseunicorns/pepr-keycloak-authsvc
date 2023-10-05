@@ -2,10 +2,8 @@ import anyTest, { TestFn } from "ava";
 
 import { AuthServiceSecretBuilder } from "./secretBuilder";
 import { kind } from "pepr";
-// import { K8sAPI } from "../kubernetes-api";
+import { K8sAPI } from "../kubernetes-api";
 import { AuthserviceConfig } from "./secretConfig";
-
-import { chance } from "../secretV2";
 
 const test = anyTest as TestFn<{
   authServiceSecretBuilder: AuthServiceSecretBuilder;
@@ -13,10 +11,8 @@ const test = anyTest as TestFn<{
 }>;
 
 test.beforeEach(t => {
-  // const k8sApi = new K8sAPI();
-
   // mock function to return secrets
-  chance.getSecretsByLabelSelector = () => {
+  K8sAPI.getSecretsByLabelSelector = () => {
     return Promise.resolve([
       {
         metadata: {
@@ -33,7 +29,6 @@ test.beforeEach(t => {
     ]);
   };
 
-  // const secretBuilder = new AuthServiceSecretBuilder(k8sApi);
   const secretBuilder = new AuthServiceSecretBuilder();
 
   // mock authservice config
@@ -118,7 +113,7 @@ test("AuthServiceSecretBuilder should build an authservice config", async t => {
     ]);
 
   t.is(authServiceConfig.chains.length, 1);
-  t.is(authServiceConfig.chains[0].name, "podinfo");
+  t.is(authServiceConfig.chains[0].name, "cG9kaW5mbw==");
 });
 
 test("AuthServiceSecretBuilder should leave a single chain if all are removed", async t => {

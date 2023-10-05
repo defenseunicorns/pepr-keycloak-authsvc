@@ -1,6 +1,5 @@
-// import { K8sAPI } from "./kubernetes-api";
+import { K8sAPI } from "./kubernetes-api";
 import { fetch, fetchStatus } from "pepr";
-import { chance } from "./secretV2";
 
 export interface Client {
   clientId: string;
@@ -20,7 +19,6 @@ export interface OpenIdData {
 export class KcAPI {
   keycloakBaseUrl: string;
   token: string;
-  // k8sApi: K8sAPI;
 
   constructor(keycloakBaseUrl: string) {
     this.keycloakBaseUrl = keycloakBaseUrl;
@@ -33,7 +31,7 @@ export class KcAPI {
 
     const namespace = "keycloak";
     const name = "keycloak-env";
-    const responseSecret = await chance.getSecret(name, namespace);
+    const responseSecret = await K8sAPI.getSecret(name, namespace);
     const username = responseSecret.data["KEYCLOAK_ADMIN"];
     const password = responseSecret.data["KEYCLOAK_ADMIN_PASSWORD"];
 

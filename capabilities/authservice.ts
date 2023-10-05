@@ -1,7 +1,6 @@
 import { Capability, a } from "pepr";
 
 import { AuthServiceSecretBuilder } from "./lib/authservice/secretBuilder";
-// import { K8sAPI } from "./lib/kubernetes-api";
 
 export const AuthService = new Capability({
   name: "AuthService",
@@ -11,8 +10,6 @@ export const AuthService = new Capability({
 
 const { When } = AuthService;
 
-// const k8sApi = new K8sAPI();
-// const authserviceSecretBuilder = new AuthServiceSecretBuilder(k8sApi);
 const authserviceSecretBuilder = new AuthServiceSecretBuilder();
 
 When(a.Secret)
