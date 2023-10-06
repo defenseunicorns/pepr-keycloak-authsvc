@@ -19,27 +19,39 @@ const test = anyTest as TestFn<{
   testSecret: kind.Secret;
 }>;
 
+test.beforeEach(async () => {
+  // Make sure a newly created secret isn't present when starting new test
+  try {
+    await K8sAPI.deleteSecret("secret-test-value", namespace);
+  } catch (e) {
+    // ignore when the secret doesn't exist
+  }
+});
+
 /*
     Kubernetes-api getSecret Function tests
 */
-test("Test getSecret functionality for successfully retrieving secret", async t => {
-  const getSecretResponse = await K8sAPI.getSecret(name, namespace);
+test.serial(
+  "Test getSecret functionality for successfully retrieving secret",
+  async t => {
+    const getSecretResponse = await K8sAPI.getSecret(name, namespace);
 
-  t.truthy(getSecretResponse.data, "Response should not be null");
+    t.truthy(getSecretResponse.data, "Response should not be null");
 
-  t.is(
-    getSecretResponse.data["KEYCLOAK_ADMIN"],
-    adminUser,
-    "Response should contain data field called KEYCLOAK_ADMIN with the value `admin`",
-  );
-  t.is(
-    getSecretResponse.data["KEYCLOAK_ADMIN_PASSWORD"],
-    adminPass,
-    "Response should contain data field called KEYCLOAK_ADMIN_PASSWORD with the value `sup3r-secret-p@ssword`",
-  );
-});
+    t.is(
+      getSecretResponse.data["KEYCLOAK_ADMIN"],
+      adminUser,
+      "Response should contain data field called KEYCLOAK_ADMIN with the value `admin`",
+    );
+    t.is(
+      getSecretResponse.data["KEYCLOAK_ADMIN_PASSWORD"],
+      adminPass,
+      "Response should contain data field called KEYCLOAK_ADMIN_PASSWORD with the value `sup3r-secret-p@ssword`",
+    );
+  },
+);
 
-test("Test getSecret functionality no existing secret", async t => {
+test.serial("Test getSecret functionality no existing secret", async t => {
   try {
     await K8sAPI.getSecret(name, null);
     // Expect the request to fail
@@ -49,193 +61,260 @@ test("Test getSecret functionality no existing secret", async t => {
   }
 });
 
-test("Test getSecret functionality for unsuccessfully retrieving secret with null values", async t => {
-  // Null values should result in data missing message error response
-  await t.throwsAsync(K8sAPI.getSecret(null, namespace), {
-    instanceOf: Error,
-    message: "Data is missing in secret",
-  });
-  await t.throwsAsync(K8sAPI.getSecret(null, null), {
-    instanceOf: Error,
-    message: "Data is missing in secret",
-  });
-});
+test.serial(
+  "Test getSecret functionality for unsuccessfully retrieving secret with null values",
+  async t => {
+    // Null values should result in data missing message error response
+    await t.throwsAsync(K8sAPI.getSecret(null, namespace), {
+      instanceOf: Error,
+      message: "Data is missing in secret",
+    });
+    await t.throwsAsync(K8sAPI.getSecret(null, null), {
+      instanceOf: Error,
+      message: "Data is missing in secret",
+    });
+  },
+);
 
 /*
     Kubernetes-api getSecretsByLabelSelector Function tests
 */
-test("Test getSecretsByLabelSelector functionality for successfully retrieving secrets", async t => {
-  const getSecretsByLabelSelectorResponse =
-    await K8sAPI.getSecretsByLabelSelector(labelSelector);
+test.serial(
+  "Test getSecretsByLabelSelector functionality for successfully retrieving secrets",
+  async t => {
+    const getSecretsByLabelSelectorResponse =
+      await K8sAPI.getSecretsByLabelSelector(labelSelector);
 
-  t.truthy(
-    getSecretsByLabelSelectorResponse,
-    "Assert this response is not null",
-  );
-  t.true(
-    getSecretsByLabelSelectorResponse.length > 0,
-    "Assert there is at least 1 element in secret list",
-  );
+    t.truthy(
+      getSecretsByLabelSelectorResponse,
+      "Assert this response is not null",
+    );
+    t.true(
+      getSecretsByLabelSelectorResponse.length > 0,
+      "Assert there is at least 1 element in secret list",
+    );
 
-  // Get specific keycloak secret and check its data which is base64 encoded
-  const envSecret = getSecretsByLabelSelectorResponse.find(
-    secret => secret.metadata.name === name,
-  );
-  t.is(
-    envSecret.data["KEYCLOAK_ADMIN"],
-    "YWRtaW4=",
-    "Response should contain data field called KEYCLOAK_ADMIN with the value `YWRtaW4=`",
-  );
-  t.is(
-    envSecret.data["KEYCLOAK_ADMIN_PASSWORD"],
-    "c3VwM3Itc2VjcmV0LXBAc3N3b3Jk",
-    "Response should contain data field called KEYCLOAK_ADMIN_PASSWORD with the value `c3VwM3Itc2VjcmV0LXBAc3N3b3Jk`",
-  );
-});
+    // Get specific keycloak secret and check its data which is base64 encoded
+    const envSecret = getSecretsByLabelSelectorResponse.find(
+      secret => secret.metadata.name === name,
+    );
+    t.is(
+      envSecret.data["KEYCLOAK_ADMIN"],
+      "YWRtaW4=",
+      "Response should contain data field called KEYCLOAK_ADMIN with the value `YWRtaW4=`",
+    );
+    t.is(
+      envSecret.data["KEYCLOAK_ADMIN_PASSWORD"],
+      "c3VwM3Itc2VjcmV0LXBAc3N3b3Jk",
+      "Response should contain data field called KEYCLOAK_ADMIN_PASSWORD with the value `c3VwM3Itc2VjcmV0LXBAc3N3b3Jk`",
+    );
+  },
+);
 
-test("Test getSecretsByLabelSelector functionality for no secrets matching labelSelector", async t => {
-  const getSecretsByLabelSelectorResponse =
-    await K8sAPI.getSecretsByLabelSelector("FAKE_SELECTOR_LABEL");
+test.serial(
+  "Test getSecretsByLabelSelector functionality for no secrets matching labelSelector",
+  async t => {
+    const getSecretsByLabelSelectorResponse =
+      await K8sAPI.getSecretsByLabelSelector("FAKE_SELECTOR_LABEL");
 
-  t.truthy(
-    getSecretsByLabelSelectorResponse,
-    "Response should not be null despite having 0 elements",
-  );
-  t.is(
-    getSecretsByLabelSelectorResponse.length,
-    0,
-    "Response should contain 0 elements in list of Secrets that matched the labelSelector",
-  );
-});
+    t.truthy(
+      getSecretsByLabelSelectorResponse,
+      "Response should not be null despite having 0 elements",
+    );
+    t.is(
+      getSecretsByLabelSelectorResponse.length,
+      0,
+      "Response should contain 0 elements in list of Secrets that matched the labelSelector",
+    );
+  },
+);
 
-test("Test getSecretsByLabelSelector functionality for when labelSelector is null", async t => {
-  // Null value should result in TypeError response
-  await t.throwsAsync(K8sAPI.getSecretsByLabelSelector(null), {
-    instanceOf: TypeError,
-    message: "Cannot read properties of null (reading 'split')",
-  });
-});
+test.serial(
+  "Test getSecretsByLabelSelector functionality for when labelSelector is null",
+  async t => {
+    // Null value should result in TypeError response
+    await t.throwsAsync(K8sAPI.getSecretsByLabelSelector(null), {
+      instanceOf: TypeError,
+      message: "Cannot read properties of null (reading 'split')",
+    });
+  },
+);
 
 /*
     Kubernetes-api applySecret Function tests
 */
-test("Test applySecret functionality for successfully creating a new secret", async t => {
-  const applySecretResponse = await K8sAPI.applySecret({
-    metadata: {
-      name: "secret-test-value",
-      namespace: namespace,
-      labels: { "pepr.dev/keycloak": "testlabel" },
-    },
-    data: { testField: "testfield" },
-  });
-
-  t.truthy(
-    applySecretResponse,
-    "Response should contain a Secret and not be null",
-  );
-  t.is(applySecretResponse.kind, "Secret", "Response should be of kind Secret");
-  t.is(
-    applySecretResponse.data["testField"],
-    "dGVzdGZpZWxk",
-    "Response should contain a secret that contains base64 encoded `dGVzdGZpZWxk` data",
-  );
-  t.is(
-    applySecretResponse.metadata.labels["pepr.dev/keycloak"],
-    "testlabel",
-    "Response should contain a new data element called `testField`",
-  );
-
-  // Next need to get that secret to verify it was successfully created
-  const newSecret = await K8sAPI.getSecret("secret-test-value", namespace);
-  t.truthy(newSecret.data, "Response should not be null");
-  t.is(
-    newSecret.metadata.labels["pepr.dev/keycloak"],
-    "testlabel",
-    "Verify new secret contains data element `testField`",
-  );
-});
-
-test("Test applySecret functionality for updating a secret", async t => {
-  const applySecretResponse = await K8sAPI.applySecret({
-    metadata: {
-      name: name,
-      namespace: namespace,
-    },
-    data: { testField: "testfield" },
-  });
-
-  t.truthy(
-    applySecretResponse,
-    "Response should contain a Secret and not be null",
-  );
-  t.is(applySecretResponse.kind, "Secret", "Response should be of kind Secret");
-  t.is(
-    applySecretResponse.data["testField"],
-    "dGVzdGZpZWxk",
-    "Response should contain an updated Secret that contains the new data element `testField`",
-  );
-  t.is(
-    applySecretResponse.data["KEYCLOAK_ADMIN"],
-    "YWRtaW4=",
-    "Response should contain an updated Secret that contains the old data field called KEYCLOAK_ADMIN with the value `YWRtaW4=`",
-  );
-  t.is(
-    applySecretResponse.data["KEYCLOAK_ADMIN_PASSWORD"],
-    "c3VwM3Itc2VjcmV0LXBAc3N3b3Jk",
-    "Response should contain an updated Secret that contains the old data field called KEYCLOAK_ADMIN_PASSWORD with the value `c3VwM3Itc2VjcmV0LXBAc3N3b3Jk`",
-  );
-});
-
-test("Test applySecret functionality for intentionally failing", async t => {
-  try {
-    await K8sAPI.applySecret({
+test.serial(
+  "Test applySecret functionality for successfully creating a new secret",
+  async t => {
+    const applySecretResponse = await K8sAPI.applySecret({
+      metadata: {
+        name: "secret-test-value",
+        namespace: namespace,
+        labels: { "pepr.dev/keycloak": "testlabel" },
+      },
       data: { testField: "testfield" },
     });
-    // Expect the request to fail because of not being defined correctly
-    t.fail("Expected promise to be rejected");
+
+    t.truthy(
+      applySecretResponse,
+      "Response should contain a Secret and not be null",
+    );
+    t.is(
+      applySecretResponse.kind,
+      "Secret",
+      "Response should be of kind Secret",
+    );
+    t.is(
+      applySecretResponse.data["testField"],
+      "dGVzdGZpZWxk",
+      "Response should contain a secret that contains base64 encoded `dGVzdGZpZWxk` data",
+    );
+    t.is(
+      applySecretResponse.metadata.labels["pepr.dev/keycloak"],
+      "testlabel",
+      "Response should contain a new data element called `testField`",
+    );
+
+    // Next need to get that secret to verify it was successfully created
+    const newSecret = await K8sAPI.getSecret("secret-test-value", namespace);
+    t.truthy(newSecret.data, "Response should not be null");
+    t.is(
+      newSecret.metadata.labels["pepr.dev/keycloak"],
+      "testlabel",
+      "Verify new secret contains data element `testField`",
+    );
+  },
+);
+
+test.serial("Test applySecret functionality duplicate secret", async t => {
+  try {
+    const firstSecret = await K8sAPI.applySecret({
+      metadata: {
+        name: "secret-test-value",
+        namespace: namespace,
+        labels: { "pepr.dev/keycloak": "testlabel" },
+      },
+      data: { testField: "testfield" },
+    });
+
+    t.truthy(firstSecret, "First Secret to be created should not be undefined");
+
+    const secondSecret = await K8sAPI.applySecret({
+      metadata: {
+        name: "secret-test-value",
+        namespace: namespace,
+        labels: { "pepr.dev/keycloak": "testlabel" },
+      },
+      data: { testField: "testfield" },
+    });
+
+    t.truthy(
+      secondSecret,
+      "Second Secret to be created should not be undefined",
+    );
+    t.deepEqual(firstSecret, secondSecret, "Secrets should equal each other");
   } catch (e) {
-    t.true(e instanceof Object, "The rejected value should be an ojbect");
+    t.fail("The secrets were unable to be created successfully");
   }
 });
+
+test.serial(
+  "Test applySecret functionality for updating an existing secret",
+  async t => {
+    const applySecretResponse = await K8sAPI.applySecret({
+      metadata: {
+        name: name,
+        namespace: namespace,
+      },
+      data: { testField: "testfield" },
+    });
+
+    t.truthy(
+      applySecretResponse,
+      "Response should contain a Secret and not be null",
+    );
+    t.is(
+      applySecretResponse.kind,
+      "Secret",
+      "Response should be of kind Secret",
+    );
+    t.is(
+      applySecretResponse.data["testField"],
+      "dGVzdGZpZWxk",
+      "Response should contain an updated Secret that contains the new data element `testField`",
+    );
+    t.is(
+      applySecretResponse.data["KEYCLOAK_ADMIN"],
+      "YWRtaW4=",
+      "Response should contain an updated Secret that contains the old data field called KEYCLOAK_ADMIN with the value `YWRtaW4=`",
+    );
+    t.is(
+      applySecretResponse.data["KEYCLOAK_ADMIN_PASSWORD"],
+      "c3VwM3Itc2VjcmV0LXBAc3N3b3Jk",
+      "Response should contain an updated Secret that contains the old data field called KEYCLOAK_ADMIN_PASSWORD with the value `c3VwM3Itc2VjcmV0LXBAc3N3b3Jk`",
+    );
+  },
+);
+
+test.serial(
+  "Test applySecret functionality for incomplete secret object",
+  async t => {
+    try {
+      await K8sAPI.applySecret({
+        data: { testField: "testfield" },
+      });
+      // Expect the request to fail because of not being defined correctly
+      t.fail("Expected promise to be rejected");
+    } catch (e) {
+      t.true(e instanceof Object, "The rejected value should be an ojbect");
+    }
+  },
+);
 
 /*
     Kubernetes-api deleteSecret Function tests
 */
-test("Test deleteSecret functionality for successfully deleting a secret", async t => {
-  // First Create a new test secret
-  await K8sAPI.applySecret({
-    metadata: {
-      name: "secret-test-value",
-      namespace: namespace,
-      labels: { "pepr.dev/keycloak": "testlabel" },
-    },
-    data: { testField: "testfield" },
-  });
+test.serial(
+  "Test deleteSecret functionality for successfully deleting a secret",
+  async t => {
+    // First Create a new test secret
+    await K8sAPI.applySecret({
+      metadata: {
+        name: "secret-test-value",
+        namespace: namespace,
+        labels: { "pepr.dev/keycloak": "testlabel" },
+      },
+      data: { testField: "testfield" },
+    });
 
-  // Next delete that secret
-  await K8sAPI.deleteSecret("secret-test-value", namespace);
+    // Next delete that secret
+    await K8sAPI.deleteSecret("secret-test-value", namespace);
 
-  // Then attempt to retrieve that secret
-  try {
-    await K8sAPI.getSecret("secret-test-value", namespace);
-  } catch (e) {
-    t.true(e instanceof Object, "There was no Secret to retrieve");
-  }
-});
+    // Then attempt to retrieve that secret
+    try {
+      await K8sAPI.getSecret("secret-test-value", namespace);
+    } catch (e) {
+      t.true(e instanceof Object, "There was no Secret to retrieve");
+    }
+  },
+);
 
-test("Test deleteSecret functionality for secret that doesn't exist", async t => {
-  try {
-    await K8sAPI.deleteSecret("SECRET_THAT_DOESNT_EXIST", namespace);
-    t.pass("Expected to pass because function catches non existent deletion");
-  } catch (e) {
-    t.fail();
-  }
-});
+test.serial(
+  "Test deleteSecret functionality for secret that doesn't exist",
+  async t => {
+    try {
+      await K8sAPI.deleteSecret("SECRET_THAT_DOESNT_EXIST", namespace);
+      t.pass("Expected to pass because function catches non existent deletion");
+    } catch (e) {
+      t.fail();
+    }
+  },
+);
 
 /*
     Kubernetes-api transformToSecret, transformBinaryToUTF8, and transformFromSecret external Function tests
 */
-test("Test transformToSecret functionality", async t => {
+test.serial("Test transformToSecret functionality", async t => {
   // Create basic Secret for test
   const secret: kind.Secret = {
     apiVersion: "v1",
@@ -259,62 +338,68 @@ test("Test transformToSecret functionality", async t => {
   t.is(secret.data["testField"], "dGVzdGZpZWxk");
 });
 
-test("Test transformFromSecret functionality with standard base64 encoded data", async t => {
-  // Create basic Secret for test
-  const secret: kind.Secret = {
-    apiVersion: "v1",
-    kind: "Secret",
-    metadata: {
-      name: "secret-name",
-      namespace: "secret-namespace",
-      labels: {
-        "pepr.dev/keycloak": "testlabel",
+test.serial(
+  "Test transformFromSecret functionality with standard base64 encoded data",
+  async t => {
+    // Create basic Secret for test
+    const secret: kind.Secret = {
+      apiVersion: "v1",
+      kind: "Secret",
+      metadata: {
+        name: "secret-name",
+        namespace: "secret-namespace",
+        labels: {
+          "pepr.dev/keycloak": "testlabel",
+        },
       },
-    },
-    data: {
-      // base64 encoded string: 'testfield'
-      testField: "dGVzdGZpZWxk",
-      // base64 encoded string: 'anotherTestField'
-      anotherTestField: "YW5vdGhlclRlc3RGaWVsZA==",
-    },
-  };
-
-  const transformedSecret = await transformFromSecret(secret);
-
-  t.truthy(transformedSecret);
-  t.is(transformedSecret.metadata["name"], "secret-name");
-  t.is(transformedSecret.metadata["namespace"], "secret-namespace");
-  t.is(transformedSecret.data["testField"], "testfield");
-  t.is(transformedSecret.data["anotherTestField"], "anotherTestField");
-});
-
-test("Test transformBinaryToUTF8 functionality with binary data", async t => {
-  // Create basic Secret for test
-  const secret: kind.Secret = {
-    apiVersion: "v1",
-    kind: "Secret",
-    metadata: {
-      name: "secret-name",
-      namespace: "secret-namespace",
-      labels: {
-        "pepr.dev/keycloak": "testlabel",
+      data: {
+        // base64 encoded string: 'testfield'
+        testField: "dGVzdGZpZWxk",
+        // base64 encoded string: 'anotherTestField'
+        anotherTestField: "YW5vdGhlclRlc3RGaWVsZA==",
       },
-    },
-    data: {
-      // binary string: 'testfield'
-      testField:
-        "01110100 01100101 01110011 01110100 01100110 01101001 01100101 01101100 01100100",
-      // binary string: 'anotherTestField'
-      anotherTestField:
-        "01100001 01101110 01101111 01110100 01101000 01100101 01110010 01010100 01100101 01110011 01110100 01000110 01101001 01100101 01101100 01100100",
-    },
-  };
+    };
 
-  const transformedSecret = await transformBinaryToUTF8(secret);
+    const transformedSecret = await transformFromSecret(secret);
 
-  t.truthy(transformedSecret);
-  t.is(transformedSecret.metadata["name"], "secret-name");
-  t.is(transformedSecret.metadata["namespace"], "secret-namespace");
-  t.is(transformedSecret.data["testField"], "testfield");
-  t.is(transformedSecret.data["anotherTestField"], "anotherTestField");
-});
+    t.truthy(transformedSecret);
+    t.is(transformedSecret.metadata["name"], "secret-name");
+    t.is(transformedSecret.metadata["namespace"], "secret-namespace");
+    t.is(transformedSecret.data["testField"], "testfield");
+    t.is(transformedSecret.data["anotherTestField"], "anotherTestField");
+  },
+);
+
+test.serial(
+  "Test transformBinaryToUTF8 functionality with binary data",
+  async t => {
+    // Create basic Secret for test
+    const secret: kind.Secret = {
+      apiVersion: "v1",
+      kind: "Secret",
+      metadata: {
+        name: "secret-name",
+        namespace: "secret-namespace",
+        labels: {
+          "pepr.dev/keycloak": "testlabel",
+        },
+      },
+      data: {
+        // binary string: 'testfield'
+        testField:
+          "01110100 01100101 01110011 01110100 01100110 01101001 01100101 01101100 01100100",
+        // binary string: 'anotherTestField'
+        anotherTestField:
+          "01100001 01101110 01101111 01110100 01101000 01100101 01110010 01010100 01100101 01110011 01110100 01000110 01101001 01100101 01101100 01100100",
+      },
+    };
+
+    const transformedSecret = await transformBinaryToUTF8(secret);
+
+    t.truthy(transformedSecret);
+    t.is(transformedSecret.metadata["name"], "secret-name");
+    t.is(transformedSecret.metadata["namespace"], "secret-namespace");
+    t.is(transformedSecret.data["testField"], "testfield");
+    t.is(transformedSecret.data["anotherTestField"], "anotherTestField");
+  },
+);

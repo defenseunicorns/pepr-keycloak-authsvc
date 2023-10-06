@@ -61,6 +61,7 @@ export class K8sAPI {
 }
 
 // ToDo: Deep copy rather than copy in place
+// Convert secret data to base64
 export function transformToSecret(secret: kind.Secret) {
   if (!secret.data) {
     throw new Error("Data is missing in secret");
@@ -73,6 +74,7 @@ export function transformToSecret(secret: kind.Secret) {
   }
 }
 
+// Convert secret data from base64 to utf-8
 export function transformFromSecret(secret: kind.Secret) {
   if (!secret.data) {
     throw new Error("Data is missing in secret");
@@ -88,6 +90,7 @@ export function transformFromSecret(secret: kind.Secret) {
   return secret;
 }
 
+// Convert secret data from binary to utf-8
 export function transformBinaryToUTF8(secret: kind.Secret) {
   if (!secret.data) {
     throw new Error("Data is missing in secret");
