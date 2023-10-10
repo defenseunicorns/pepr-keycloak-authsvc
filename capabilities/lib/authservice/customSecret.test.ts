@@ -14,11 +14,6 @@ const sampleSecret = {
   apiVersion: "v1",
   kind: "Secret",
   type: "Opaque",
-  stringData: {
-    username: "myUsername",
-    password: "myPassword",
-    api_key: "myApiKey",
-  },
   data: {
     item: Buffer.from("my secret data").toString("base64"),
     anotherItem: Buffer.from("another secret data").toString("base64"),
@@ -89,11 +84,6 @@ test("Test getSecret that returns a kind.Secret", async t => {
     "Secret should contain an `apiVersion` with value `v1`",
   );
   t.is(
-    convertedSecret.type,
-    "Opaque",
-    "Secret should contain a `type` with value `Opaque`",
-  );
-  t.is(
     convertedSecret.kind,
     "Secret",
     "Secret should contain a `kind` with value `Secret`",
@@ -119,21 +109,5 @@ test("Test getSecret that returns a kind.Secret", async t => {
     convertedSecret.data["anotherItem"],
     Buffer.from("another secret data").toString("base64"),
     "Secret should contain data field `anotherItem` with value `another secret data`",
-  );
-
-  t.is(
-    convertedSecret.stringData["api_key"],
-    "myApiKey",
-    "Secret should contain string data `api_key` with value `myApiKey`",
-  );
-  t.is(
-    convertedSecret.stringData["username"],
-    "myUsername",
-    "Secret should contain string data `username` with value `myUsername`",
-  );
-  t.is(
-    convertedSecret.stringData["password"],
-    "myPassword",
-    "Secret should contain string data `password` with value `myPassword`",
   );
 });

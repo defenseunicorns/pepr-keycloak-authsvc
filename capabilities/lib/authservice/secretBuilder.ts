@@ -1,11 +1,12 @@
-import { Log, kind } from "pepr";
+import { Log } from "pepr";
 import { K8sAPI } from "../kubernetes-api";
 import { AuthserviceConfig } from "./secretConfig";
 import { createHash } from "crypto";
 import { ascend, path, reject, sortWith } from "ramda";
+import { CustomSecret } from "./customSecret";
 
 interface UpdateEvent {
-  secret: kind.Secret;
+  secret: CustomSecret;
   isDelete: boolean;
 }
 
@@ -16,31 +17,16 @@ export class AuthServiceSecretBuilder {
 
   constructor() {}
 
-  private validateSecretData(secret: kind.Secret, key: string) {
-    if (!secret.data) {
-      throw new Error("Data is missing in secret");
-    }
-    if (!secret.data[key]) {
-      throw new Error(`Key ${key} is missing in secret`);
-    }
-  }
-
-  private decodeBase64(secret: kind.Secret, key: string): string {
-    this.validateSecretData(secret, key);
-    return secret.data[key];
-  }
-
-  private sortSecrets(secrets: kind.Secret[]): kind.Secret[] {
+  private sortSecrets(secrets: CustomSecret[]): CustomSecret[] {
     return sortWith([
       ascend(path(["metadata", "name"])),
       ascend(path(["metadata", "namespace"])),
     ])(secrets);
   }
 
-  secretToAuthServiceConfig(secret: kind.Secret): AuthserviceConfig {
-    this.validateSecretData(secret, this.authServiceConfigFileName);
+  secretToAuthServiceConfig(secret: CustomSecret): AuthserviceConfig {
     return new AuthserviceConfig(
-      JSON.parse(secret.data[this.authServiceConfigFileName]),
+      JSON.parse(secret.getStringData(this.authServiceConfigFileName)),
     );
   }
 
@@ -51,14 +37,14 @@ export class AuthServiceSecretBuilder {
   }
 
   async buildSecretList(
-    updatedSecret: kind.Secret,
+    updatedSecret: CustomSecret,
     isDelete: boolean,
     labelSelector = "pepr.dev/keycloak=oidcconfig",
-  ): Promise<kind.Secret[]> {
+  ) {
     let missionSecrets = await K8sAPI.getSecretsByLabelSelector(labelSelector);
 
-    function isEqual(s: kind.Secret) {
-      return (secret: kind.Secret) =>
+    function isEqual(s: CustomSecret) {
+      return (secret: CustomSecret) =>
         secret.metadata.name === s?.metadata?.name &&
         secret.metadata.namespace === s?.metadata?.namespace;
     }
@@ -85,20 +71,20 @@ export class AuthServiceSecretBuilder {
   }
 
   async buildAuthServiceConfig(
-    secrets: kind.Secret[],
+    secrets: CustomSecret[],
   ): Promise<AuthserviceConfig> {
     const authServiceConfig = await this.getAuthServiceConfig();
 
     authServiceConfig.chains = secrets.map(secret => {
-      const name = this.decodeBase64(secret, "name");
-      const domain = this.decodeBase64(secret, "domain");
-      const id = this.decodeBase64(secret, "id");
+      const name = secret.getStringData("name");
+      const domain = secret.getStringData("domain");
+      const id = secret.getStringData("id");
       return AuthserviceConfig.createSingleChain({
         id,
         name,
         hostname: `${name}.${domain}`,
-        redirect_uri: this.decodeBase64(secret, "redirectUri"),
-        secret: this.decodeBase64(secret, "clientSecret"),
+        redirect_uri: secret.getStringData("redirectUri"),
+        secret: secret.getStringData("clientSecret"),
       });
     });
 
@@ -122,15 +108,17 @@ export class AuthServiceSecretBuilder {
     const config = JSON.stringify(authserviceConfig);
     const configHash = createHash("sha256").update(config).digest("hex");
 
-    const updatedSecret = await K8sAPI.applySecret({
-      metadata: {
-        name: this.authServiceSecretName,
-        namespace: this.authServiceNamespace,
-      },
-      data: {
-        [this.authServiceConfigFileName]: config,
-      },
-    });
+    const updatedSecret = await K8sAPI.applySecret(
+      new CustomSecret({
+        metadata: {
+          name: this.authServiceSecretName,
+          namespace: this.authServiceNamespace,
+        },
+        data: {
+          [this.authServiceConfigFileName]: config,
+        },
+      }),
+    );
 
     if (updatedSecret) {
       Log.info("Updated secret succesfully", "updateAuthServiceSecret");

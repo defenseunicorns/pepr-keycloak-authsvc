@@ -1,31 +1,31 @@
 import anyTest, { TestFn } from "ava";
 
 import { AuthServiceSecretBuilder } from "./secretBuilder";
-import { kind } from "pepr";
 import { K8sAPI } from "../kubernetes-api";
 import { AuthserviceConfig } from "./secretConfig";
+import { CustomSecret } from "./customSecret";
 
 const test = anyTest as TestFn<{
   authServiceSecretBuilder: AuthServiceSecretBuilder;
-  testSecret: kind.Secret;
+  testSecret: CustomSecret;
 }>;
 
 test.beforeEach(t => {
   // mock function to return secrets
   K8sAPI.getSecretsByLabelSelector = () => {
     return Promise.resolve([
-      {
+      new CustomSecret({
         metadata: {
           namespace: "default",
           name: "foo",
         },
-      },
-      {
+      }),
+      new CustomSecret({
         metadata: {
           namespace: "default",
           name: "bar",
         },
-      },
+      }),
     ]);
   };
 
@@ -46,7 +46,7 @@ test.beforeEach(t => {
 
   t.context = {
     authServiceSecretBuilder: secretBuilder,
-    testSecret: {
+    testSecret: new CustomSecret({
       metadata: {
         namespace: "default",
         name: "baz",
@@ -59,7 +59,7 @@ test.beforeEach(t => {
         redirectUri: "YmlnYmFuZy5kZXY=",
         clientSecret: "cG9kaW5mbw==",
       },
-    },
+    }),
   };
 });
 
@@ -73,12 +73,12 @@ test("AuthServiceSecretBuilder should handle adding a secret correctly", async t
 });
 
 test("AuthServiceSecretBuilder should handle deleting a secret correctly", async t => {
-  const deletedSecret: kind.Secret = {
+  const deletedSecret = new CustomSecret({
     metadata: {
       namespace: "default",
       name: "foo",
     },
-  };
+  });
 
   const secrets = await t.context.authServiceSecretBuilder.buildSecretList(
     deletedSecret,
@@ -90,12 +90,12 @@ test("AuthServiceSecretBuilder should handle deleting a secret correctly", async
 
 test("AuthServiceSecretBuilder should handle sorting secrets correctly", async t => {
   const secrets = await t.context.authServiceSecretBuilder.buildSecretList(
-    {
+    new CustomSecret({
       metadata: {
         namespace: "otherns",
         name: "foo",
       },
-    },
+    }),
     false,
   );
 
@@ -113,7 +113,7 @@ test("AuthServiceSecretBuilder should build an authservice config", async t => {
     ]);
 
   t.is(authServiceConfig.chains.length, 1);
-  t.is(authServiceConfig.chains[0].name, "cG9kaW5mbw==");
+  t.is(authServiceConfig.chains[0].name, "podinfo");
 });
 
 test("AuthServiceSecretBuilder should leave a single chain if all are removed", async t => {

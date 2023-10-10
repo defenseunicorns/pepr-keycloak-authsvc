@@ -2,6 +2,7 @@ import { Capability, Log, a } from "pepr";
 import { KcAPI } from "./lib/kc-api";
 import { K8sAPI } from "./lib/kubernetes-api";
 import { OidcClientK8sSecretData } from "./lib/types";
+import { CustomSecret } from "./lib/authservice/customSecret";
 
 export const Keycloak = new Capability({
   name: "Keycloak",
@@ -86,14 +87,16 @@ When(a.Secret)
         redirectUri: redirectUri,
       };
 
-      await K8sAPI.applySecret({
-        metadata: {
-          name: `${newSecret.name}-client`,
-          namespace: request.Raw.metadata.namespace,
-          labels: { "pepr.dev/keycloak": "oidcconfig" },
-        },
-        data: newSecret as unknown as Record<string, string>,
-      });
+      await K8sAPI.applySecret(
+        new CustomSecret({
+          metadata: {
+            name: `${newSecret.name}-client`,
+            namespace: request.Raw.metadata.namespace,
+            labels: { "pepr.dev/keycloak": "oidcconfig" },
+          },
+          data: newSecret as unknown as Record<string, string>,
+        }),
+      );
     } catch (e) {
       Log.error(`error ${e}`, "Keycloak.Client.Secret.IsCreatedOrUpdated()");
       return request.Deny(`error ${e}`);

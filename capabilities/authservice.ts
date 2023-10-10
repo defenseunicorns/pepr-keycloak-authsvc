@@ -1,6 +1,7 @@
 import { Capability, a } from "pepr";
 
 import { AuthServiceSecretBuilder } from "./lib/authservice/secretBuilder";
+import { CustomSecret } from "./lib/authservice/customSecret";
 
 export const AuthService = new Capability({
   name: "AuthService",
@@ -17,7 +18,7 @@ When(a.Secret)
   .WithLabel("pepr.dev/keycloak", "oidcconfig")
   .Mutate(async request => {
     await authserviceSecretBuilder.update({
-      secret: request.Raw,
+      secret: new CustomSecret(request.Raw),
       isDelete: false,
     });
   });
@@ -27,7 +28,7 @@ When(a.Secret)
   .WithLabel("pepr.dev/keycloak", "oidcconfig")
   .Mutate(async request => {
     await authserviceSecretBuilder.update({
-      secret: request.OldResource,
+      secret: new CustomSecret(request.OldResource),
       isDelete: true,
     });
   });

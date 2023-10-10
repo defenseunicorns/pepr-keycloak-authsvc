@@ -1,29 +1,27 @@
 import { kind } from "pepr";
 
-class CustomSecret {
+export class CustomSecret {
   metadata?: kind.Secret["metadata"];
-  private apiVersion?: string;
-  private kind?: string;
-  private type?: string;
+
   private stringData?: { [key: string]: string };
   private data: { [key: string]: string | Buffer };
 
   constructor(secret: kind.Secret) {
     this.metadata = secret.metadata;
-    this.apiVersion = secret.apiVersion;
-    this.kind = secret.kind;
-    this.type = secret.type;
+
     this.stringData = secret.stringData;
     this.data = {};
 
-    if (secret.data) {
-      for (const [key, value] of Object.entries(secret.data)) {
-        const decoded = Buffer.from(value, "base64");
+    for (const [key, value] of Object.entries(secret.data || [])) {
+      try {
+        const encoded = Buffer.from(value, "base64");
         try {
-          this.data[key] = decoded.toString("utf-8");
+          this.data[key] = Buffer.from(value, "base64").toString("utf-8");
         } catch {
-          this.data[key] = decoded;
+          this.data[key] = encoded;
         }
+      } catch {
+        this.data[key] = value;
       }
     }
   }
@@ -38,13 +36,17 @@ class CustomSecret {
     this.data[key] = value;
   }
 
+  // return secret string data based on key value
+  getStringData(key: string): string {
+    return this.data[key].toString();
+  }
+
   // return a V1Secret
   getSecret(): kind.Secret {
     const secret: kind.Secret = {
+      apiVersion: "v1",
+      kind: "Secret",
       metadata: this.metadata,
-      apiVersion: this.apiVersion,
-      kind: this.kind,
-      type: this.type,
       stringData: this.stringData,
       data: {},
     };
