@@ -1,28 +1,16 @@
 import anyTest, { TestFn } from "ava";
 
 import { K8sAPI } from "./kubernetes-api";
-import { kind } from "pepr";
 import { CustomSecret } from "./authservice/customSecret";
+
+const test = anyTest as TestFn;
 
 // Global Test Variables
 const namespace = "keycloak";
 const name = "keycloak-env";
-const labelSelector = "helm.sh/chart=keycloak-18.4.3-bb.2";
+const labelSelector = { "helm.sh/chart": "keycloak-18.4.3-bb.2" };
 const adminUser = "admin";
 const adminPass = "sup3r-secret-p@ssword";
-
-const test = anyTest as TestFn<{
-  testSecret: kind.Secret;
-}>;
-
-test.beforeEach(async () => {
-  // Make sure a newly created secret isn't present when starting new test
-  try {
-    await K8sAPI.deleteSecret("secret-test-value", namespace);
-  } catch (e) {
-    // ignore when the secret doesn't exist
-  }
-});
 
 /*
     Kubernetes-api getSecret Function tests
@@ -32,20 +20,18 @@ test.serial(
   async t => {
     const getSecretResponse = await K8sAPI.getSecret(name, namespace);
 
-    t.truthy(getSecretResponse.getData, "Response should not be null");
+    t.truthy(getSecretResponse.getSecret(), "Response should not be null");
 
     t.is(
-      getSecretResponse.getData("KEYCLOAK_ADMIN"),
+      getSecretResponse.getStringData("KEYCLOAK_ADMIN"),
       adminUser,
       "Response should contain data field called KEYCLOAK_ADMIN with the value `admin`",
     );
     t.is(
-      getSecretResponse.getData("KEYCLOAK_ADMIN_PASSWORD"),
+      getSecretResponse.getStringData("KEYCLOAK_ADMIN_PASSWORD"),
       adminPass,
       "Response should contain data field called KEYCLOAK_ADMIN_PASSWORD with the value `sup3r-secret-p@ssword`",
     );
-
-
   },
 );
 
@@ -94,12 +80,12 @@ test.serial(
       secret => secret.metadata.name === name,
     );
     t.is(
-      envSecret.getData("KEYCLOAK_ADMIN"),
+      envSecret.getStringData("KEYCLOAK_ADMIN"),
       adminUser,
       "Response should contain data field called KEYCLOAK_ADMIN with the value `YWRtaW4=`",
     );
     t.is(
-      envSecret.getData("KEYCLOAK_ADMIN_PASSWORD"),
+      envSecret.getStringData("KEYCLOAK_ADMIN_PASSWORD"),
       adminPass,
       "Response should contain data field called KEYCLOAK_ADMIN_PASSWORD with the value `c3VwM3Itc2VjcmV0LXBAc3N3b3Jk`",
     );
@@ -110,7 +96,9 @@ test.serial(
   "Test getSecretsByLabelSelector functionality for no secrets matching labelSelector",
   async t => {
     const getSecretsByLabelSelectorResponse =
-      await K8sAPI.getSecretsByLabelSelector("FAKE_SELECTOR_LABEL");
+      await K8sAPI.getSecretsByLabelSelector({
+        FAKE_SELECTOR_LABEL: "FAKE_SELECTOR_VALUE",
+      });
 
     t.truthy(
       getSecretsByLabelSelectorResponse,
@@ -125,13 +113,15 @@ test.serial(
 );
 
 test.serial(
-  "Test getSecretsByLabelSelector functionality for when labelSelector is null",
+  "Test getSecretsByLabelSelector functionality for when labelSelector is empty",
   async t => {
-    // Null value should result in TypeError response
-    await t.throwsAsync(K8sAPI.getSecretsByLabelSelector(null), {
-      instanceOf: TypeError,
-      message: "Cannot read properties of null (reading 'split')",
-    });
+    const getSecretsByLabelSelectorResponse =
+      await K8sAPI.getSecretsByLabelSelector({});
+    t.is(
+      0,
+      getSecretsByLabelSelectorResponse.length,
+      "When an empty labelSelector is provided should return an empty list",
+    );
   },
 );
 
@@ -161,11 +151,11 @@ test.serial(
       "Secret",
       "Response should be of kind Secret",
     );
-    // t.is(
-    //   applySecretResponse.data["testField"],
-    //   "dGVzdGZpZWxk",
-    //   "Response should contain a secret that contains base64 encoded `dGVzdGZpZWxk` data",
-    // );
+    t.is(
+      applySecretResponse.data["testField"],
+      "dGVzdGZpZWxk",
+      "Response should contain a secret that contains base64 encoded `dGVzdGZpZWxk` data",
+    );
     t.is(
       applySecretResponse.metadata.labels["pepr.dev/keycloak"],
       "testlabel",
@@ -174,12 +164,15 @@ test.serial(
 
     // Next need to get that secret to verify it was successfully created
     const newSecret = await K8sAPI.getSecret("secret-test-value", namespace);
-    t.truthy(newSecret.getData, "Response should not be null");
+    t.truthy(newSecret.getStringData, "Response should not be null");
     t.is(
       newSecret.metadata.labels["pepr.dev/keycloak"],
       "testlabel",
       "Verify new secret contains data element `testField`",
     );
+
+    // remove created secret
+    await K8sAPI.deleteSecret("secret-test-value", namespace);
   },
 );
 
@@ -217,6 +210,9 @@ test.serial("Test applySecret functionality duplicate secret", async t => {
   } catch (e) {
     t.fail("The secrets were unable to be created successfully");
   }
+
+  // remove created secret
+  await K8sAPI.deleteSecret("secret-test-value", namespace);
 });
 
 test.serial(
@@ -241,11 +237,11 @@ test.serial(
       "Secret",
       "Response should be of kind Secret",
     );
-    // t.is(
-    //   applySecretResponse.data["testField"],
-    //   "dGVzdGZpZWxk",
-    //   "Response should contain an updated Secret that contains the new data element `testField`",
-    // );
+    t.is(
+      applySecretResponse.data["testField"],
+      "dGVzdGZpZWxk",
+      "Response should contain an updated Secret that contains the new data element `testField`",
+    );
     t.is(
       applySecretResponse.data["KEYCLOAK_ADMIN"],
       "YWRtaW4=",

@@ -4,7 +4,7 @@ export class CustomSecret {
   metadata?: kind.Secret["metadata"];
 
   private stringData?: { [key: string]: string };
-  private data: { [key: string]: string | Buffer };
+  private data: { [key: string]: string };
 
   constructor(secret: kind.Secret) {
     this.metadata = secret.metadata;
@@ -14,11 +14,12 @@ export class CustomSecret {
 
     for (const [key, value] of Object.entries(secret.data || [])) {
       try {
-        const encoded = Buffer.from(value, "base64");
-        try {
-          this.data[key] = Buffer.from(value, "base64").toString("utf-8");
-        } catch {
-          this.data[key] = encoded;
+        const decodedValue = atob(value);
+
+        if (this.isValidASCII(decodedValue)) {
+          this.data[key] = decodedValue;
+        } else {
+          this.data[key] = value;
         }
       } catch {
         this.data[key] = value;
@@ -26,13 +27,8 @@ export class CustomSecret {
     }
   }
 
-  // return secret data based on key value
-  getData(key: string): string | Buffer | undefined {
-    return this.data[key];
-  }
-
   // set new secret data by providing key and value
-  setData(key: string, value: string | Buffer): void {
+  setData(key: string, value: string): void {
     this.data[key] = value;
   }
 
@@ -52,18 +48,21 @@ export class CustomSecret {
     };
 
     for (const [key, value] of Object.entries(this.data)) {
-      if (typeof value === "string") {
-        secret.data![key] = Buffer.from(value).toString("base64");
-      } else if (value instanceof Buffer) {
-        secret.data![key] = value.toString("base64");
-      }
+      secret.data![key] = Buffer.from(value).toString("base64");
     }
 
     return secret;
   }
-}
 
-// Export a testing instance
-export function createCustomSecret(secret: kind.Secret): CustomSecret {
-  return new CustomSecret(secret);
+  // Check if the decoded value is valid UTF-8
+  // using Buffer.from and ASCHII regex ranges don't work
+  isValidASCII(input) {
+    for (let i = 0; i < input.length; i++) {
+      const charCode = input.charCodeAt(i);
+      if (charCode < 0x00 || charCode > 0x7f) {
+        return false;
+      }
+    }
+    return true;
+  }
 }

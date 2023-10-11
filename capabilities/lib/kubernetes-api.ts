@@ -10,17 +10,16 @@ export class K8sAPI {
   }
 
   // Return list of CustomSecrets that contain labels
-  static async getSecretsByLabelSelector(labelSelector: string) {
-    const [key, value] = labelSelector.split("=");
-    const label = { [key]: value };
+  static async getSecretsByLabelSelector(labelSelector: {
+    [key: string]: string;
+  }) {
+    if (Object.keys(labelSelector).length === 0) {
+      return [];
+    }
 
-    const result = await Promise.all(
-      (await K8s(kind.Secret, { labels: label }).Get()).items.map(
-        secret => new CustomSecret(secret),
-      ),
+    return (await K8s(kind.Secret, { labels: labelSelector }).Get()).items.map(
+      secret => new CustomSecret(secret),
     );
-
-    return result;
   }
 
   // Delete a secret based on its name and a namespace

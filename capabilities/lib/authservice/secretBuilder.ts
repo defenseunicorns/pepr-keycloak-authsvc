@@ -39,7 +39,7 @@ export class AuthServiceSecretBuilder {
   async buildSecretList(
     updatedSecret: CustomSecret,
     isDelete: boolean,
-    labelSelector = "pepr.dev/keycloak=oidcconfig",
+    labelSelector = { "pepr.dev/keycloak": "oidcconfig" },
   ) {
     let missionSecrets = await K8sAPI.getSecretsByLabelSelector(labelSelector);
 
