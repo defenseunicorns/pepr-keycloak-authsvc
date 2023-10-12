@@ -233,23 +233,17 @@ test.serial(
     const s = await K8sAPI.getSecret(name, namespace);
 
     t.truthy(s);
-    t.is(s.getStringData("testField1"), "testfield1");
-
-    // const applySecretResponse = await K8sAPI.applySecret(
-    //   new CustomSecret({
-    //     metadata: {
-    //       name: name,
-    //       namespace: namespace,
-    //     },
-    //     data: { testField2: "testfield2" },
-    //   }),
-    // );
+    t.is(
+      s.getStringData("testField1"),
+      "testfield1",
+      "Original secret should contain the data element `testField1`",
+    );
 
     const applySecretResponse = await K8sAPI.applySecret(
       new CustomSecret({
         metadata: {
-          name: "k3s-serving",
-          namespace: "kube-system",
+          name: name,
+          namespace: namespace,
         },
         data: { testField2: "testfield2" },
       }),
@@ -264,9 +258,9 @@ test.serial(
       "Secret",
       "Response should be of kind Secret",
     );
-    t.truthy(
-      applySecretResponse.data["tls.crt"],
-      "Response should contain an updated Secret that contains the new data element `testField1`",
+    t.falsy(
+      applySecretResponse.data["testField1"],
+      "Response should not contain the data element `testField1`",
     );
     t.is(
       applySecretResponse.data["testField2"],
