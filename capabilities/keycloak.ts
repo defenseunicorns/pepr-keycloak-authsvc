@@ -2,6 +2,7 @@ import { Capability, Log, a } from "pepr";
 import { KcAPI } from "./lib/kc-api";
 import { K8sAPI } from "./lib/kubernetes-api";
 import { OidcClientK8sSecretData } from "./lib/types";
+import { CustomSecret } from "./lib/authservice/customSecret";
 
 export const Keycloak = new Capability({
   name: "Keycloak",
@@ -86,16 +87,19 @@ When(a.Secret)
         redirectUri: redirectUri,
       };
 
-      const k8sApi = new K8sAPI();
-      await k8sApi.upsertSecret(
-        `${newSecret.name}-client`,
-        request.Raw.metadata.namespace,
-        newSecret as unknown as Record<string, string>,
-        { "pepr.dev/keycloak": "oidcconfig" },
+      await K8sAPI.applySecret(
+        new CustomSecret({
+          metadata: {
+            name: `${newSecret.name}-client`,
+            namespace: request.Raw.metadata.namespace,
+            labels: { "pepr.dev/keycloak": "oidcconfig" },
+          },
+          data: newSecret as unknown as Record<string, string>,
+        }),
       );
     } catch (e) {
-      return request.Deny(`error ${e}`);
       Log.error(`error ${e}`, "Keycloak.Client.Secret.IsCreatedOrUpdated()");
+      return request.Deny(`error ${e}`);
     }
     return request.Approve();
   });
@@ -108,8 +112,8 @@ When(a.Secret)
     try {
       const kcAPI = new KcAPI(getKeyclockBaseURL(request.Raw.data.domain));
       kcAPI.DeleteClient(request.Raw.data.id, request.Raw.data.realm);
-      const k8sApi = new K8sAPI();
-      await k8sApi.deleteSecret(
+
+      await K8sAPI.deleteSecret(
         `${request.Raw.data.name}-client`,
         request.Raw.metadata.namespace,
       );

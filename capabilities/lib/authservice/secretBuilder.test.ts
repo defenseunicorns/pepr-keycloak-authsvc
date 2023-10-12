@@ -1,37 +1,35 @@
 import anyTest, { TestFn } from "ava";
 
 import { AuthServiceSecretBuilder } from "./secretBuilder";
-import { k8s } from "pepr";
 import { K8sAPI } from "../kubernetes-api";
 import { AuthserviceConfig } from "./secretConfig";
+import { CustomSecret } from "./customSecret";
 
 const test = anyTest as TestFn<{
   authServiceSecretBuilder: AuthServiceSecretBuilder;
-  testSecret: k8s.V1Secret;
+  testSecret: CustomSecret;
 }>;
 
 test.beforeEach(t => {
-  const k8sApi = new K8sAPI();
-
   // mock function to return secrets
-  k8sApi.getSecretsByLabelSelector = () => {
+  K8sAPI.getSecretsByLabelSelector = () => {
     return Promise.resolve([
-      {
+      new CustomSecret({
         metadata: {
           namespace: "default",
           name: "foo",
         },
-      },
-      {
+      }),
+      new CustomSecret({
         metadata: {
           namespace: "default",
           name: "bar",
         },
-      },
+      }),
     ]);
   };
 
-  const secretBuilder = new AuthServiceSecretBuilder(k8sApi);
+  const secretBuilder = new AuthServiceSecretBuilder();
 
   // mock authservice config
   secretBuilder.getAuthServiceConfig = () => {
@@ -48,7 +46,7 @@ test.beforeEach(t => {
 
   t.context = {
     authServiceSecretBuilder: secretBuilder,
-    testSecret: {
+    testSecret: new CustomSecret({
       metadata: {
         namespace: "default",
         name: "baz",
@@ -61,7 +59,7 @@ test.beforeEach(t => {
         redirectUri: "YmlnYmFuZy5kZXY=",
         clientSecret: "cG9kaW5mbw==",
       },
-    },
+    }),
   };
 });
 
@@ -75,12 +73,12 @@ test("AuthServiceSecretBuilder should handle adding a secret correctly", async t
 });
 
 test("AuthServiceSecretBuilder should handle deleting a secret correctly", async t => {
-  const deletedSecret: k8s.V1Secret = {
+  const deletedSecret = new CustomSecret({
     metadata: {
       namespace: "default",
       name: "foo",
     },
-  };
+  });
 
   const secrets = await t.context.authServiceSecretBuilder.buildSecretList(
     deletedSecret,
@@ -92,12 +90,12 @@ test("AuthServiceSecretBuilder should handle deleting a secret correctly", async
 
 test("AuthServiceSecretBuilder should handle sorting secrets correctly", async t => {
   const secrets = await t.context.authServiceSecretBuilder.buildSecretList(
-    {
+    new CustomSecret({
       metadata: {
         namespace: "otherns",
         name: "foo",
       },
-    },
+    }),
     false,
   );
 
