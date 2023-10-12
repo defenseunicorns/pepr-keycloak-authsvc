@@ -36,20 +36,8 @@ jobs:
         shell: bash
 
       - name: Create k3d cluster
-        id: create-cluster
-        # renovate: datasource=github-tags depName=defenseunicorns/uds-aws-ci-k3d versioning=semver
-        uses: defenseunicorns/uds-aws-ci-k3d@v0.0.5
-        with:
-          cluster-action: create
-          aws-assume-role: ${{ secrets.AWS_COMMERCIAL_ROLE_TO_ASSUME }}
-          aws-region: us-west-2
+        run: npm run k3d-setup
 
       - run: npm ci
       - run: npm test
 
-      - name: Teardown k3d cluster
-        if: always()
-        # renovate: datasource=github-tags depName=defenseunicorns/uds-aws-ci-k3d versioning=semver
-        uses: defenseunicorns/uds-aws-ci-k3d@v0.0.5
-        with:
-          cluster-action: destroy

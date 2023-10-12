@@ -8,7 +8,7 @@ const test = anyTest as TestFn;
 // Global Test Variables
 const namespace = "kube-system";
 const name = "secret-test-value";
-const labelSelector = {"pepr.dev/keycloak": "testlabel"};
+const labelSelector = { "pepr.dev/keycloak": "testlabel" };
 
 // create testing secret to be used by tests
 test.before(async () => {
@@ -17,7 +17,7 @@ test.before(async () => {
       metadata: {
         name: "secret-test-value",
         namespace: "kube-system",
-        labels: {"pepr.dev/keycloak": "testlabel"},
+        labels: { "pepr.dev/keycloak": "testlabel" },
       },
       data: { testField1: "testfield1" },
     }),
@@ -27,7 +27,7 @@ test.before(async () => {
 // remove craeted secret no matter what happens in the tests
 test.after.always(async () => {
   await K8sAPI.deleteSecret(name, namespace);
-})
+});
 
 /*
     Kubernetes-api getSecret Function tests
@@ -45,7 +45,7 @@ test.serial(
       "Response should contain data field called testField1 with the value `testfield1`",
     );
     t.is(
-      getSecretResponse.getSecret().metadata['name'],
+      getSecretResponse.getSecret().metadata["name"],
       name,
       "Response should contain metadata field called name with the value `secret-test-value`",
     );
@@ -223,15 +223,14 @@ test.serial("Test applySecret functionality duplicate secret", async t => {
     t.fail("The secrets were unable to be created successfully");
   }
 
-    // remove created secret
-    await K8sAPI.deleteSecret("duplicate-test-secret", namespace);
+  // remove created secret
+  await K8sAPI.deleteSecret("duplicate-test-secret", namespace);
 });
 
 test.serial(
   "Test applySecret functionality for updating an existing secret",
   async t => {
-
-    const s = (await K8sAPI.getSecret(name, namespace));
+    const s = await K8sAPI.getSecret(name, namespace);
 
     t.truthy(s);
     t.is(s.getStringData("testField1"), "testfield1");
