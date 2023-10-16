@@ -1,0 +1,20 @@
+fullnameOverride: "keycloak"
+extraEnvFrom: |
+  - secretRef:
+      name: keycloak-env
+secrets:
+  env:
+    stringData:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: password
+command:
+  - "/opt/keycloak/bin/kc.sh"
+  - "start"
+  - "--http-enabled=true"
+  - "--http-port=8080"
+  - "--hostname-strict=false"
+  - "--hostname-strict-https=false"
+extraEnv: |
+  - name: JAVA_OPTS_APPEND
+    value: >-
+      -Djgroups.dns.query={{ include "keycloak.fullname" . }}-headless

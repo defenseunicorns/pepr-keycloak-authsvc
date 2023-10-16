@@ -32,8 +32,9 @@ export class KcAPI {
     const namespace = "keycloak";
     const name = "keycloak-env";
     const responseSecret = await K8sAPI.getSecret(name, namespace);
-    const username = responseSecret.setData["KEYCLOAK_ADMIN"];
-    const password = responseSecret.setData["KEYCLOAK_ADMIN_PASSWORD"];
+    const username = responseSecret.getStringData("KEYCLOAK_ADMIN")
+    const password = responseSecret.getStringData("KEYCLOAK_ADMIN_PASSWORD")
+
 
     interface accessToken {
       access_token: string;

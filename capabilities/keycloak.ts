@@ -69,8 +69,13 @@ When(a.Secret)
         request.Raw.data?.redirectUri ||
         `https://${request.Raw.data.name}.${request.Raw.data.domain}/login`;
 
+      const keycloakBaseUrl =
+        request.Raw.data?.keycloakBaseUrl || getKeyclockBaseURL(request.Raw.data.domain)
+        
       // have keycloak generate the new client and return the secret
-      const kcAPI = new KcAPI(getKeyclockBaseURL(request.Raw.data.domain));
+      Log.info(`Keycloak - Attempting to connect to keycloak at ${keycloakBaseUrl}`)
+
+      const kcAPI = new KcAPI(keycloakBaseUrl);
       const clientSecret = await kcAPI.GetOrCreateClient(
         request.Raw.data.realm,
         request.Raw.data.name,
