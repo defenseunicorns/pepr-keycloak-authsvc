@@ -9,8 +9,8 @@ const execAsync = util.promisify(exec);
 test("E2E Test: Create New Client from Generic Secret", async t => {
 
   // Define the kubcetl command to create new secret to test integration
-  const createSecret = 'kubectl create secret generic client2 --from-literal=realm=baby-yoda --from-literal=id=podinfo --from-literal=name=podinfo --from-literal=domain=bigbang.dev'
-  const labelSecret = 'kubectl label secret client2 pepr.dev/keycloak=createclient';
+  const createSecret = 'kubectl create secret generic client2 -n keycloak --from-literal=realm=baby-yoda --from-literal=id=podinfo --from-literal=name=podinfo --from-literal=domain=bigbang.dev'
+  const labelSecret = 'kubectl label secret client2 -n keycloak "pepr.dev/keycloak=createclient"';
 
   try{
     //Execute createSecret
@@ -28,9 +28,8 @@ test("E2E Test: Create New Client from Generic Secret", async t => {
       t.falsy(labelerr, 'kubectl command to label new secret produced no stderr output');
     }
 
-    // ToDo: add more tests for asserting that when the secret is relabeled it creates a new client
     // Get the newly created secret that should have been created by pepr-keycloak-authsvc and keycloak
-    const getNewSecret = '';
+    const getNewSecret = 'kubectl get secret client2 -n keycloak';
     const { stdout: newSecretOut, stderr: newSecretErr } = await execAsync(getNewSecret);
 
     t.truthy(newSecretOut, 'Kubectl command to get new secret produced output');
