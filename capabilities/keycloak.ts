@@ -70,10 +70,13 @@ When(a.Secret)
         `https://${request.Raw.data.name}.${request.Raw.data.domain}/login`;
 
       const keycloakBaseUrl =
-        request.Raw.data?.keycloakBaseUrl || getKeyclockBaseURL(request.Raw.data.domain)
-        
+        request.Raw.data?.keycloakBaseUrl ||
+        getKeyclockBaseURL(request.Raw.data.domain);
+
       // have keycloak generate the new client and return the secret
-      Log.info(`Keycloak - Attempting to connect to keycloak at ${keycloakBaseUrl}`)
+      Log.info(
+        `Keycloak - Attempting to connect to keycloak at ${keycloakBaseUrl}`,
+      );
 
       const kcAPI = new KcAPI(keycloakBaseUrl);
       const clientSecret = await kcAPI.GetOrCreateClient(
