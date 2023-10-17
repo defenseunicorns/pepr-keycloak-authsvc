@@ -1,5 +1,5 @@
 import anyTest, { TestFn } from "ava";
-import { CustomSecret } from "./customSecret";
+import { CustomSecret } from "../../capabilities/lib/authservice/customSecret";
 
 const test = anyTest as TestFn;
 

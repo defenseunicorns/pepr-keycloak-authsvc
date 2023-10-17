@@ -38,6 +38,9 @@ jobs:
       - name: "Run npm install for project"
         run: npm ci
 
-      - name: "Setup env and Run all node/ava tests in project"
-        run: npm test
+      - name: "Run all unit tests in project"
+        run: npm run test:unit
+
+      - name: "Run all e2e tests in project"
+        run: npm run test:e2e
 

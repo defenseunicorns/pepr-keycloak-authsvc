@@ -1,9 +1,9 @@
 import anyTest, { TestFn } from "ava";
 
-import { AuthServiceSecretBuilder } from "./secretBuilder";
-import { K8sAPI } from "../kubernetes-api";
-import { AuthserviceConfig } from "./secretConfig";
-import { CustomSecret } from "./customSecret";
+import { AuthServiceSecretBuilder } from "../../capabilities/lib/authservice/secretBuilder";
+import { K8sAPI } from "../../capabilities/lib/kubernetes-api";
+import { AuthserviceConfig } from "../../capabilities/lib/authservice/secretConfig";
+import { CustomSecret } from "../../capabilities/lib/authservice/customSecret";
 
 const test = anyTest as TestFn<{
   authServiceSecretBuilder: AuthServiceSecretBuilder;

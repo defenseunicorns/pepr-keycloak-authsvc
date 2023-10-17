@@ -1,6 +1,7 @@
 import test from "ava";
 import util from "util";
 import { exec } from "child_process";
+import { fetch } from "pepr";
 
 // run shell command asynchronously
 const execAsync = util.promisify(exec);
@@ -49,3 +50,4 @@ test.serial("E2E Test: Create New Client from Generic Secret", async t => {
     t.fail("Failed to run kubectl command without errors: " + e.message);
   }
 });
+
