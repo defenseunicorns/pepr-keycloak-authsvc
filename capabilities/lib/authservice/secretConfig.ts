@@ -152,6 +152,7 @@ export interface ChainInput {
   redirect_uri: string;
   secret: string;
   id: string;
+  cookie_name_prefix: string;
 }
 
 interface AuthserviceConfigJSON {

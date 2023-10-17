@@ -9,6 +9,7 @@ test("AuthserviceConfig should handle input correctly", t => {
     hostname: "test.hostname",
     redirect_uri: "http://localhost:8080",
     secret: "secret",
+    cookie_name_prefix: "testNamespace_test",
   };
 
   const filterChain = AuthserviceConfig.createSingleChain(chainInput);

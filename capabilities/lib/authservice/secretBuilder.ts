@@ -85,6 +85,7 @@ export class AuthServiceSecretBuilder {
         hostname: `${name}.${domain}`,
         redirect_uri: secret.getStringData("redirectUri"),
         secret: secret.getStringData("clientSecret"),
+        cookie_name_prefix: `${secret.metadata.namespace}_${secret.metadata.name}`,
       });
     });
 
@@ -97,6 +98,7 @@ export class AuthServiceSecretBuilder {
           hostname: "localhost.localhost",
           redirect_uri: "https://localhost.localhost",
           secret: "placeholderSecret",
+          cookie_name_prefix: "ns_namespace",
         }),
       );
     }
