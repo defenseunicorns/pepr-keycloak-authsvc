@@ -35,9 +35,9 @@ jobs:
         run: "curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash"
         shell: bash
 
-      - name: Create k3d cluster
-        run: npm run k3d-setup
+      - name: "Run npm install for project"
+        run: npm ci
 
-      - run: npm ci
-      - run: npm test
+      - name: "Setup env and Run all node/ava tests in project"
+        run: npm test
 
