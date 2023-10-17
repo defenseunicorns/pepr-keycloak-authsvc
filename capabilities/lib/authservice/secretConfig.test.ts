@@ -30,7 +30,7 @@ test("AuthserviceConfig should handle input correctly", t => {
   t.is(oidcConfig.callback_uri, chainInput.redirect_uri);
   t.is(oidcConfig.client_id, chainInput.name);
   t.is(oidcConfig.client_secret, chainInput.secret);
-  t.is(oidcConfig.cookie_name_prefix, chainInput.name);
+  t.is(oidcConfig.cookie_name_prefix, chainInput.cookie_name_prefix);
 
   const authserviceConfig = new AuthserviceConfig({
     chains: [filterChain],

@@ -200,7 +200,7 @@ export class AuthserviceConfig {
       callback_uri: input.redirect_uri,
       client_id: input.id,
       client_secret: input.secret,
-      cookie_name_prefix: input.name,
+      cookie_name_prefix: input.cookie_name_prefix,
     });
 
     const filter = new Filter({

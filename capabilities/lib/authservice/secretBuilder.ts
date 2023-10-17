@@ -32,8 +32,8 @@ export class AuthServiceSecretBuilder {
 
   async update(e: UpdateEvent) {
     await this.buildSecretList(e.secret, e.isDelete)
-      .then(this.buildAuthServiceConfig)
-      .then(this.updateAuthServiceSecret);
+      .then(this.buildAuthServiceConfig.bind(this))
+      .then(this.updateAuthServiceSecret.bind(this));
   }
 
   async buildSecretList(

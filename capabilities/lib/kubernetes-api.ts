@@ -37,7 +37,7 @@ export class K8sAPI {
 
   // Create / Update secret based on provided metadata and data fields
   static async applySecret(secret: CustomSecret) {
-    return K8s(kind.Secret).Apply(secret.getSecret());
+    return K8s(kind.Secret).Apply(secret.getSecret(), { force: true });
   }
 
   static async checksumDeployment(
