@@ -33,10 +33,9 @@
   },
   "scripts": {
     "build": "rm -fr dist && npx pepr build -e index.ts",
-    "k3d-setup": "k3d cluster delete pepr-dev && k3d cluster create pepr-dev --k3s-arg '--debug@server:0' -p '443:443@loadbalancer' -p '80:80@loadbalancer' --k3s-arg='--disable=traefik@server:0'",
-    "test:e2e:deps": "cd e2e && ./keycloak.sh",
-    "test:e2e": "npm run k3d-setup && npx pepr deploy --confirm && npm run test:e2e:deps && npm run test",
-    "test": "ava"
+    "k3d-setup": "k3d cluster create pepr-dev --k3s-arg '--debug@server:0' -p '443:443@loadbalancer' -p '80:80@loadbalancer' --k3s-arg='--disable=traefik@server:0'",
+    "test:deps": "cd e2e && ./keycloak.sh",
+    "test": "npm run k3d-setup && npx pepr deploy --confirm && npm run test:deps && npx ava; k3d cluster delete pepr-dev"
   },
   "dependencies": {
     "pepr": "^0.14.0"
