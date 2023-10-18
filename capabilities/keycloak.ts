@@ -2,10 +2,11 @@ import { Capability, Log, a } from "pepr";
 import { KcAPI } from "./lib/kc-api";
 import { K8sAPI } from "./lib/kubernetes-api";
 import { OidcClientK8sSecretData } from "./lib/types";
+import { CustomSecret } from "./lib/authservice/customSecret";
 
 export const Keycloak = new Capability({
   name: "Keycloak",
-  description: "Simple example to configure keycloak realm and clientid",
+  description: "Configures keycloak realm (two ways) and clientids",
   namespaces: [],
 });
 
@@ -25,7 +26,7 @@ When(a.Secret)
   .IsCreatedOrUpdated()
   .InNamespace("keycloak")
   .WithLabel("pepr.dev/keycloak", "createrealm")
-  .Then(async request => {
+  .Mutate(async request => {
     try {
       const kcAPI = new KcAPI(getKeyclockBaseURL(request.Raw.data.domain));
       await kcAPI.GetOrCreateRealm(request.Raw.data.realm);
@@ -44,7 +45,7 @@ When(a.ConfigMap)
   .IsCreatedOrUpdated()
   .InNamespace("keycloak")
   .WithLabel("pepr.dev/keycloak", "createrealm")
-  .Then(async request => {
+  .Mutate(async request => {
     try {
       const kcAPI = new KcAPI(getKeyclockBaseURL(request.Raw.data.domain));
       await kcAPI.ImportRealm(request.Raw.data.realmJson);
@@ -62,7 +63,7 @@ Example steps:
 When(a.Secret)
   .IsCreatedOrUpdated()
   .WithLabel("pepr.dev/keycloak", "createclient")
-  .Then(async request => {
+  .Validate(async request => {
     try {
       const redirectUri =
         request.Raw.data?.redirectUri ||
@@ -74,7 +75,7 @@ When(a.Secret)
         request.Raw.data.realm,
         request.Raw.data.name,
         request.Raw.data.id,
-        redirectUri
+        redirectUri,
       );
 
       const newSecret: OidcClientK8sSecretData = {
@@ -86,31 +87,35 @@ When(a.Secret)
         redirectUri: redirectUri,
       };
 
-      // TODO: Once this is an admission webhook (versus a mutating webhook, we will have the uid to set the ownerReference )
-      const k8sApi = new K8sAPI();
-      await k8sApi.upsertSecret(
-        `${newSecret.name}-client`,
-        request.Raw.metadata.namespace,
-        newSecret as unknown as Record<string, string>,
-        { "pepr.dev/keycloak": "oidcconfig" }
+      await K8sAPI.applySecret(
+        new CustomSecret({
+          metadata: {
+            name: `${newSecret.name}-client`,
+            namespace: request.Raw.metadata.namespace,
+            labels: { "pepr.dev/keycloak": "oidcconfig" },
+          },
+          data: newSecret as unknown as Record<string, string>,
+        }),
       );
     } catch (e) {
       Log.error(`error ${e}`, "Keycloak.Client.Secret.IsCreatedOrUpdated()");
+      return request.Deny(`error ${e}`);
     }
+    return request.Approve();
   });
 
-// Delete the secret from keycloak, and remove the authservice
+// Delete the secret from keycloak
 When(a.Secret)
   .IsDeleted()
   .WithLabel("pepr.dev/keycloak", "createclient")
-  .Then(async request => {
+  .Mutate(async request => {
     try {
       const kcAPI = new KcAPI(getKeyclockBaseURL(request.Raw.data.domain));
       kcAPI.DeleteClient(request.Raw.data.id, request.Raw.data.realm);
-      const k8sApi = new K8sAPI();
-      await k8sApi.deleteSecret(
+
+      await K8sAPI.deleteSecret(
         `${request.Raw.data.name}-client`,
-        request.Raw.metadata.namespace
+        request.Raw.metadata.namespace,
       );
     } catch (e) {
       Log.error(`error ${e}`, "Keycloak.Client.Secret.IsDeleted()");

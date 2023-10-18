@@ -9,6 +9,7 @@ test("AuthserviceConfig should handle input correctly", t => {
     hostname: "test.hostname",
     redirect_uri: "http://localhost:8080",
     secret: "secret",
+    cookie_name_prefix: "testNamespace_test",
   };
 
   const filterChain = AuthserviceConfig.createSingleChain(chainInput);
@@ -29,17 +30,15 @@ test("AuthserviceConfig should handle input correctly", t => {
   t.is(oidcConfig.callback_uri, chainInput.redirect_uri);
   t.is(oidcConfig.client_id, chainInput.name);
   t.is(oidcConfig.client_secret, chainInput.secret);
-  t.is(oidcConfig.cookie_name_prefix, chainInput.name);
+  t.is(oidcConfig.cookie_name_prefix, chainInput.cookie_name_prefix);
 
-  const json = {
-    chains: [filterChain.toObject()],
+  const authserviceConfig = new AuthserviceConfig({
+    chains: [filterChain],
     listen_address: "localhost",
     listen_port: 8080,
     log_level: "debug",
     threads: 1,
-  };
-
-  const authserviceConfig = new AuthserviceConfig(json);
+  });
 
   // Check AuthserviceConfig properties
   t.is(authserviceConfig.chains.length, 1);

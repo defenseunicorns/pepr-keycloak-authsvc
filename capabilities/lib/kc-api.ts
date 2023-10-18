@@ -19,7 +19,6 @@ export interface OpenIdData {
 export class KcAPI {
   keycloakBaseUrl: string;
   token: string;
-  k8sApi: K8sAPI;
 
   constructor(keycloakBaseUrl: string) {
     this.keycloakBaseUrl = keycloakBaseUrl;
@@ -30,24 +29,11 @@ export class KcAPI {
       return;
     }
 
-    // XXX: BDW: hard coded, but this is where it's stored in bigbang.
-    // TODO: extract this to config
     const namespace = "keycloak";
     const name = "keycloak-env";
-
-    this.k8sApi = new K8sAPI();
-    const responseSecret = await this.k8sApi.k8sApi.readNamespacedSecret(
-      name,
-      namespace
-    );
-    const existingSecret = responseSecret.body;
-    const creds = this.k8sApi.getSecretValues(existingSecret, [
-      "KEYCLOAK_ADMIN_PASSWORD",
-      "KEYCLOAK_ADMIN",
-    ]);
-
-    const username = creds["KEYCLOAK_ADMIN"];
-    const password = creds["KEYCLOAK_ADMIN_PASSWORD"];
+    const responseSecret = await K8sAPI.getSecret(name, namespace);
+    const username = responseSecret.getStringData("KEYCLOAK_ADMIN");
+    const password = responseSecret.getStringData("KEYCLOAK_ADMIN_PASSWORD");
 
     interface accessToken {
       access_token: string;
@@ -61,7 +47,7 @@ export class KcAPI {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -81,7 +67,7 @@ export class KcAPI {
         headers: {
           Authorization: `Bearer ${this.token}`,
         },
-      }
+      },
     );
 
     if (response.ok) {
@@ -102,7 +88,7 @@ export class KcAPI {
             Authorization: `Bearer ${this.token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (!createResponse.ok) {
@@ -117,11 +103,11 @@ export class KcAPI {
 
   async GetOpenIdData(realmName: string): Promise<OpenIdData> {
     const response = await fetch<OpenIdData>(
-      `${this.keycloakBaseUrl}/realms/${realmName}/.well-known/openid-configuration`
+      `${this.keycloakBaseUrl}/realms/${realmName}/.well-known/openid-configuration`,
     );
     if (!response.ok) {
       throw new Error(
-        `failed to get openid-configuration for realm ${realmName}`
+        `failed to get openid-configuration for realm ${realmName}`,
       );
     }
     return response.data;
@@ -147,7 +133,7 @@ export class KcAPI {
 
   private async GetClientSecret(
     realmName: string,
-    clientId: string
+    clientId: string,
   ): Promise<string> {
     await this.connect();
     interface clientData {
@@ -162,7 +148,7 @@ export class KcAPI {
         headers: {
           Authorization: `Bearer ${this.token}`,
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -189,7 +175,7 @@ export class KcAPI {
     realmName: string,
     clientName: string,
     clientId: string,
-    redirectUri: string
+    redirectUri: string,
   ): Promise<string> {
     await this.connect();
 
@@ -209,7 +195,7 @@ export class KcAPI {
     clientId: string,
     clientName: string,
     redirectUri: string,
-    realmName: string
+    realmName: string,
   ) {
     await this.connect();
 
@@ -228,7 +214,7 @@ export class KcAPI {
           Authorization: `Bearer ${this.token}`,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -245,11 +231,11 @@ export class KcAPI {
         headers: {
           Authorization: `Bearer ${this.token}`,
         },
-      }
+      },
     );
     if (!response.ok && response.status !== fetchStatus.NOT_FOUND) {
       throw new Error(
-        `Failed to delete client with clientId ${clientId}, ${response.status}`
+        `Failed to delete client with clientId ${clientId}, ${response.status}`,
       );
     }
   }

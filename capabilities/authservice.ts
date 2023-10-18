@@ -1,26 +1,24 @@
-import { Capability, Log, a } from "pepr";
+import { Capability, a } from "pepr";
 
 import { AuthServiceSecretBuilder } from "./lib/authservice/secretBuilder";
-import { K8sAPI } from "./lib/kubernetes-api";
+import { CustomSecret } from "./lib/authservice/customSecret";
 
 export const AuthService = new Capability({
   name: "AuthService",
-  description: "Simple example to configure AuthService",
+  description: "Configures AuthService secret and restarts it to load it",
   namespaces: [],
 });
 
 const { When } = AuthService;
 
-const k8sApi = new K8sAPI();
-const authserviceSecretBuilder = new AuthServiceSecretBuilder(k8sApi);
+const authserviceSecretBuilder = new AuthServiceSecretBuilder();
 
-// these will run in the backgeound
 When(a.Secret)
   .IsCreatedOrUpdated()
   .WithLabel("pepr.dev/keycloak", "oidcconfig")
-  .Then(async request => {
+  .Mutate(async request => {
     await authserviceSecretBuilder.update({
-      secret: request.Raw,
+      secret: new CustomSecret(request.Raw),
       isDelete: false,
     });
   });
@@ -28,9 +26,9 @@ When(a.Secret)
 When(a.Secret)
   .IsDeleted()
   .WithLabel("pepr.dev/keycloak", "oidcconfig")
-  .Then(async request => {
+  .Mutate(async request => {
     await authserviceSecretBuilder.update({
-      secret: request.OldResource,
+      secret: new CustomSecret(request.OldResource),
       isDelete: true,
     });
   });
