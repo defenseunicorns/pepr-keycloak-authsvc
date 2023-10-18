@@ -6,6 +6,7 @@ helm upgrade --install keycloak codecentric/keycloakx --namespace keycloak --cre
 sleep 5 && kubectl wait --for=condition=ready pods -l app.kubernetes.io/name=keycloakx -n keycloak --timeout=5m
 kubectl apply -f client-secret.yaml
 kubectl apply -f realm-secret.yaml
+kubectl apply -f realm-configmap.yaml
 kubectl port-forward -n keycloak service/keycloak-http 8080:80 &
 
 

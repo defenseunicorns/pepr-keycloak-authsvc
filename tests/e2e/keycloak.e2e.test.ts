@@ -6,8 +6,32 @@ import { fetch } from "pepr";
 // run shell command asynchronously
 const execAsync = util.promisify(exec);
 
+// keycloak get request helper method
+async function getRequest(url) {
+  interface accessToken {
+    access_token: string;
+  }
+
+  const response = await fetch<accessToken>(
+    `http://localhost:8080/auth/realms/master/protocol/openid-connect/token`,
+    {
+      method: "POST",
+      body: `username=admin&password=password&grant_type=password&client_id=admin-cli`,
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+  return await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${response.data.access_token}`,
+    },
+  });
+}
+
 test.serial("E2E Test: Create New Client from Generic Secret", async t => {
-  // Define the kubcetl command to create new secret to test integration
+  // Define the kubcetl command to label secret for pepr operator
   const labelSecret =
     'kubectl label secret client1 -n keycloak "pepr.dev/keycloak=createclient"';
 
@@ -36,6 +60,7 @@ test.serial("E2E Test: Create New Client from Generic Secret", async t => {
 });
 
 test.serial("E2E Test: Create a realm from generic secret", async t => {
+  // Define the kubcetl command to label secret for pepr operator
   const labelSecret =
     "kubectl label secret realm1 -n keycloak  pepr.dev/keycloak=createrealm";
 
@@ -48,27 +73,7 @@ test.serial("E2E Test: Create a realm from generic secret", async t => {
       "kubectl command to label new secret produced no stderr output",
     );
 
-    interface accessToken {
-      access_token: string;
-    }
-
-    const response = await fetch<accessToken>(
-      `http://localhost:8080/auth/realms/master/protocol/openid-connect/token`,
-      {
-        method: "POST",
-        body: `username=admin&password=password&grant_type=password&client_id=admin-cli`,
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      },
-    );
-
-    await fetch(`http://localhost:8080/auth/admin/realms/`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${response.data.access_token}`,
-      },
-    })
+    await getRequest(`http://localhost:8080/auth/admin/realms/`)
       .then(response => {
         t.true(response.ok, "Request to get all realms should be successful");
         return response.data as object[];
@@ -81,8 +86,9 @@ test.serial("E2E Test: Create a realm from generic secret", async t => {
   }
 });
 
-test.serial("E2E Test: Delete a secret from keycloak", async t => {
-  // Define the kubcetl command to delete secret
+// todo: Currently this test fails because the podinfo client is not deleted from the master realm
+test.serial("E2E Test: Delete a client when secret is deleted", async t => {
+  // Define the kubectl command to delete secret
   const deleteSecret = "kubectl delete secret client1 -n keycloak";
 
   try {
@@ -104,6 +110,59 @@ test.serial("E2E Test: Delete a secret from keycloak", async t => {
     } catch (err) {
       t.pass("Secret does not exist anymore as expected.");
     }
+
+    // interface responseObj {
+    //   clientId: string;
+    // }
+
+    // await getRequest("http://localhost:8080/auth/admin/realms/master/clients")
+    //   .then(response => {
+    //     return response.data as responseObj[];
+    //   })
+    //   .then(data => {
+    //     t.false(
+    //       data.find(obj => obj.clientId === "podinfo"),
+    //       "There should no longer be a podinfo client in the master realm after having deleted the keycloak secret.",
+    //     );
+    //   });
+  } catch (e) {
+    t.fail("Failed to run kubectl command without errors: " + e.message);
+  }
+});
+
+// todo: Currently this test fails because the `e2e-cm-test` realm is not created in keycloak
+test.serial("E2E Test: Create realm from configmap", async t => {
+  // Define the kubcetl command to label configmap for pepr operator
+  const labelConfigMap =
+    'kubectl label cm realm-configmap -n keycloak "pepr.dev/keycloak=createrealm"';
+
+  try {
+    const { stdout: labelout, stderr: labelerr } =
+      await execAsync(labelConfigMap);
+
+    t.truthy(
+      labelout,
+      "Kubectl command to label new configmap produced output",
+    );
+    t.falsy(
+      labelerr,
+      "kubectl command to label new configmap produced no stderr output",
+    );
+
+    // interface responseObj {
+    //   realm: string;
+    // }
+
+    // await getRequest("http://localhost:8080/auth/admin/realms")
+    //   .then(response => {
+    //     return response.data as responseObj[];
+    //   })
+    //   .then(data => {
+    //     t.truthy(
+    //       data.find(obj => obj.realm === "e2e-cm-test"),
+    //       "There should be a new realm called `e2e-cm-test` in keycloak.",
+    //     );
+    //   });
   } catch (e) {
     t.fail("Failed to run kubectl command without errors: " + e.message);
   }
