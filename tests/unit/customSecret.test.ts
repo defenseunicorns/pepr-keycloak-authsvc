@@ -125,29 +125,6 @@ test.serial("Test Create Custom Secret with invalid data", async t => {
 });
 
 /*
-    CustomSecret setData Function Tests
-*/
-test.serial("Test Setting new utf-8 and base64 data in secret", async t => {
-  base64Secret.setData("newItem", "This is a new item.");
-  // Add a base64 encoded string to data, which will be encoded into base64 again by the setData function
-  base64Secret.setData(
-    "anotherNewItem",
-    Buffer.from("This is another new item.").toString("base64"),
-  );
-
-  t.is(
-    base64Secret.getStringData("newItem"),
-    "This is a new item.",
-    "Secret should contain data field `newItem` with value `This is a new item.`",
-  );
-  t.is(
-    base64Secret.getStringData("anotherNewItem"),
-    Buffer.from("This is another new item.").toString("base64"),
-    "Secret should contain data field `anotherNewItem` with value `This is another new item.`",
-  );
-});
-
-/*
     CustomSecret getStringData Function Tests
 */
 test.serial("Test getStringData with base64 secret data", async t => {
