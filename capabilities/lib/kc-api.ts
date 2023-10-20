@@ -141,7 +141,6 @@ export class KcAPI {
     realmName: string,
     clientId: string,
   ): Promise<clientData | null> {
-
     await this.connect();
     const response = await fetch<clientData[]>(
       `${this.keycloakBaseUrl}/admin/realms/${realmName}/clients?clientId=${clientId}`,
@@ -192,11 +191,13 @@ export class KcAPI {
 
     return await this.GetClientByClientId(realmName, clientId).then(client => {
       if (client) {
-        return client.secret
+        return client.secret;
       } else {
-        throw new Error(`Failed to fetch newly created client with clientId ${clientId}`);
+        throw new Error(
+          `Failed to fetch newly created client with clientId ${clientId}`,
+        );
       }
-    })
+    });
   }
 
   private async CreateClient(

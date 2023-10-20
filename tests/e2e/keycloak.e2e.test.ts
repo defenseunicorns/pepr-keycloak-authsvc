@@ -86,7 +86,6 @@ test.serial("E2E Test: Create a realm from generic secret", async t => {
   }
 });
 
-// todo: Currently this test fails because the podinfo client is not deleted from the master realm. failing because of hostname differences
 test.serial("E2E Test: Delete a client when secret is deleted", async t => {
   // Define the kubectl command to delete secret
   const deleteSecret = "kubectl delete secret client1 -n keycloak";
@@ -130,7 +129,6 @@ test.serial("E2E Test: Delete a client when secret is deleted", async t => {
   }
 });
 
-// todo: Currently this test fails because the `e2e-cm-test` realm is not created in keycloak. failing because of hostname differences
 test.serial("E2E Test: Create realm from configmap", async t => {
   // Define the kubcetl command to label configmap for pepr operator
   const labelConfigMap =

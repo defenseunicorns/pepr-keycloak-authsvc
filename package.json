@@ -37,14 +37,14 @@
     "test:e2e:deps": "npm run k3d-setup && npx pepr deploy --confirm && cd tests/e2e && ./keycloak.sh",
     "test:e2e": "npm run test:e2e:deps && ava tests/e2e/*.ts",
     "test:unit": "ava tests/unit/*.ts",
-    "test": "ava"
+    "test": "npm run test:unit && npm run test:e2e"
   },
   "dependencies": {
     "pepr": "^0.14.0"
   },
   "devDependencies": {
     "ava": "5.3.1",
-    "ts-node": "10.9.1"
+    "ts-node": "^10.9.1"
   },
   "ava": {
     "extensions": [
