@@ -1,34 +1,11 @@
-import test from "ava";
+import test, { ExecutionContext } from "ava";
 import util from "util";
 import { exec } from "child_process";
 import { fetch } from "pepr";
+import { RequestInfo } from "node-fetch";
 
 // run shell command asynchronously
 const execAsync = util.promisify(exec);
-
-// keycloak get request helper method
-async function getRequest(url) {
-  interface accessToken {
-    access_token: string;
-  }
-
-  const response = await fetch<accessToken>(
-    `http://localhost:8080/auth/realms/master/protocol/openid-connect/token`,
-    {
-      method: "POST",
-      body: `username=admin&password=password&grant_type=password&client_id=admin-cli`,
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-    },
-  );
-  return await fetch(url, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${response.data.access_token}`,
-    },
-  });
-}
 
 test.serial("E2E Test: Create New Client from Generic Secret", async t => {
   // Define the kubcetl command to label secret for pepr operator
@@ -73,14 +50,12 @@ test.serial("E2E Test: Create a realm from generic secret", async t => {
       "kubectl command to label new secret produced no stderr output",
     );
 
-    await getRequest(`http://localhost:8080/auth/admin/realms/`)
-      .then(response => {
-        t.true(response.ok, "Request to get all realms should be successful");
-        return response.data as object[];
-      })
-      .then(data => {
-        t.true(data.length === 2);
-      });
+    await verifyEntity(
+      "http://localhost:8080/auth/admin/realms",
+      (obj: { realm: string }) => obj.realm === "e2e-secret-test",
+      (realminfo: object) => realminfo,
+      t,
+    );
   } catch (e) {
     t.fail("Failed to run kubectl command without errors: " + e.message);
   }
@@ -110,20 +85,12 @@ test.serial("E2E Test: Delete a client when secret is deleted", async t => {
       t.pass("Secret does not exist anymore as expected.");
     }
 
-    interface responseObj {
-      clientId: string;
-    }
-
-    await getRequest("http://localhost:8080/auth/admin/realms/master/clients")
-      .then(response => {
-        return response.data as responseObj[];
-      })
-      .then(data => {
-        t.falsy(
-          data.find(obj => obj.clientId === "podinfo"),
-          "There should no longer be a podinfo client in the master realm after having deleted the keycloak secret.",
-        );
-      });
+    await verifyEntity(
+      "http://localhost:8080/auth/admin/realms/master/clients",
+      (obj: { clientId: string }) => obj.clientId === "podinfo",
+      (podinfo: object) => !podinfo,
+      t,
+    );
   } catch (e) {
     t.fail("Failed to run kubectl command without errors: " + e.message);
   }
@@ -147,21 +114,81 @@ test.serial("E2E Test: Create realm from configmap", async t => {
       "kubectl command to label new configmap produced no stderr output",
     );
 
-    interface responseObj {
-      realm: string;
-    }
-
-    await getRequest("http://localhost:8080/auth/admin/realms")
-      .then(response => {
-        return response.data as responseObj[];
-      })
-      .then(data => {
-        t.truthy(
-          data.find(obj => obj.realm === "e2e-cm-test"),
-          "There should be a new realm called `e2e-cm-test` in keycloak.",
-        );
-      });
+    await verifyEntity(
+      "http://localhost:8080/auth/admin/realms",
+      (obj: { realm: string }) => obj.realm === "e2e-cm-test",
+      (realminfo: object) => realminfo,
+      t,
+    );
   } catch (e) {
     t.fail("Failed to run kubectl command without errors: " + e.message);
   }
 });
+
+/****************************
+  Testing Helper Functions
+*****************************/
+
+// keycloak get request helper method
+async function getRequest(url: URL | RequestInfo) {
+  interface accessToken {
+    access_token: string;
+  }
+
+  const response = await fetch<accessToken>(
+    `http://localhost:8080/auth/realms/master/protocol/openid-connect/token`,
+    {
+      method: "POST",
+      body: `username=admin&password=password&grant_type=password&client_id=admin-cli`,
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+  return await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${response.data.access_token}`,
+    },
+  });
+}
+
+/* 
+    Make requests and verify their response for conditions based on e2e tests
+    necessary for avoiding race conditions in checking pepr controller and keycloak
+    changes have been made successfully
+*/
+async function verifyEntity(
+  url: string,
+  dataFind,
+  condition,
+  t: ExecutionContext<unknown>,
+) {
+  interface responseObj {
+    realm: string;
+    clientId: string;
+  }
+
+  let retries = 0;
+  const maxRetries = 3;
+  const timeout = 3000;
+
+  while (retries < maxRetries) {
+    const response = await getRequest(url);
+    const data = response.data as responseObj[];
+    const entity = data.find(dataFind);
+
+    if (condition(entity)) {
+      t.pass();
+      break;
+    } else {
+      retries++;
+      if (retries === maxRetries) {
+        t.fail();
+        break;
+      } else {
+        await new Promise(resolve => setTimeout(resolve, timeout));
+      }
+    }
+  }
+}
