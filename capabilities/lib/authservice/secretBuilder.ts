@@ -32,8 +32,8 @@ export class AuthServiceSecretBuilder {
 
   async update(e: UpdateEvent) {
     await this.buildSecretList(e.secret, e.isDelete)
-      .then(this.buildAuthServiceConfig)
-      .then(this.updateAuthServiceSecret);
+      .then(this.buildAuthServiceConfig.bind(this))
+      .then(this.updateAuthServiceSecret.bind(this));
   }
 
   async buildSecretList(
@@ -85,6 +85,7 @@ export class AuthServiceSecretBuilder {
         hostname: `${name}.${domain}`,
         redirect_uri: secret.getStringData("redirectUri"),
         secret: secret.getStringData("clientSecret"),
+        cookie_name_prefix: `${secret.metadata.namespace}_${secret.metadata.name}`,
       });
     });
 
@@ -97,6 +98,7 @@ export class AuthServiceSecretBuilder {
           hostname: "localhost.localhost",
           redirect_uri: "https://localhost.localhost",
           secret: "placeholderSecret",
+          cookie_name_prefix: "ns_namespace",
         }),
       );
     }

@@ -152,6 +152,18 @@ export interface ChainInput {
   redirect_uri: string;
   secret: string;
   id: string;
+  cookie_name_prefix: string;
+}
+
+interface AuthserviceConfigJSON {
+  chains: FilterChainJSON[];
+  listen_address: string;
+  listen_port: number;
+  log_level: string;
+  threads: number;
+  trigger_rules?: TriggerRuleJSON[];
+  default_oidc_config?: OIDCConfigJSON;
+  allow_unmatched_requests?: boolean;
 }
 
 interface AuthserviceConfigJSON {
@@ -199,7 +211,7 @@ export class AuthserviceConfig {
       callback_uri: input.redirect_uri,
       client_id: input.id,
       client_secret: input.secret,
-      cookie_name_prefix: input.name,
+      cookie_name_prefix: input.cookie_name_prefix,
     });
 
     const filter = new Filter({

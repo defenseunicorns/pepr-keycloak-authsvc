@@ -33,7 +33,6 @@ export interface OIDCConfigJSON {
   redis_session_store_config?: RedisConfig;
   skip_verify_peer_cert?: boolean;
 }
-
 export class IdTokenConfig {
   header = "Authorization";
   preamble = "Bearer";
@@ -146,38 +145,33 @@ export class OIDCConfig {
   skip_verify_peer_cert?: boolean;
 
   constructor(json: OIDCConfigJSON) {
-    this.authorization_uri = json?.authorization_uri;
-    this.token_uri = json?.token_uri;
+    this.authorization_uri = json.authorization_uri;
+    this.token_uri = json.token_uri;
     this.callback_uri = json.callback_uri;
     this.client_id = json.client_id;
     this.client_secret = json.client_secret;
-    this.scopes = json?.scopes;
+    this.scopes = json.scopes;
 
-    this.cookie_name_prefix = json?.cookie_name_prefix;
-    this.id_token = json?.id_token;
-    this.access_token = json?.access_token;
+    this.cookie_name_prefix = json.cookie_name_prefix;
+    this.id_token = json.id_token;
+    this.access_token = json.access_token;
 
     if (json.logout) {
       this.logout = new LogoutConfig(json.logout);
     }
 
-    this.jwks = json?.jwks;
+    this.jwks = json.jwks;
 
     if (json.jwks_fetcher) {
       this.jwks_fetcher = new JwksFetcherConfig(json.jwks_fetcher);
     }
 
-    this.absolute_session_timeout = json?.absolute_session_timeout;
-    this.idle_session_timeout = json?.idle_session_timeout;
-    this.trusted_certificate_authority = json?.trusted_certificate_authority;
-
-    if (json.proxy_uri) {
-      new URL(json.proxy_uri);
-      this.proxy_uri = json.proxy_uri;
-    }
-
-    this.redis_session_store_config = json?.redis_session_store_config;
-    this.skip_verify_peer_cert = json?.skip_verify_peer_cert;
+    this.absolute_session_timeout = json.absolute_session_timeout;
+    this.idle_session_timeout = json.idle_session_timeout;
+    this.trusted_certificate_authority = json.trusted_certificate_authority;
+    this.proxy_uri = json.proxy_uri;
+    this.redis_session_store_config = json.redis_session_store_config;
+    this.skip_verify_peer_cert = json.skip_verify_peer_cert;
   }
 
   toObject() {

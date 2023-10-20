@@ -27,11 +27,6 @@ export class CustomSecret {
     }
   }
 
-  // set new secret data by providing key and value
-  setData(key: string, value: string): void {
-    this.data[key] = value;
-  }
-
   // return secret string data based on key value
   getStringData(key: string): string {
     return this.data[key].toString();
@@ -39,19 +34,18 @@ export class CustomSecret {
 
   // return a V1Secret
   getSecret(): kind.Secret {
-    const secret: kind.Secret = {
+    const data = {};
+    for (const [key, value] of Object.entries(this.data)) {
+      data[key] = Buffer.from(value).toString("base64");
+    }
+
+    return {
       apiVersion: "v1",
       kind: "Secret",
       metadata: this.metadata,
       stringData: this.stringData,
-      data: {},
+      data,
     };
-
-    for (const [key, value] of Object.entries(this.data)) {
-      secret.data![key] = Buffer.from(value).toString("base64");
-    }
-
-    return secret;
   }
 
   // Check if the decoded value is valid UTF-8
