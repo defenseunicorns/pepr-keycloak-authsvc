@@ -16,6 +16,12 @@ export interface OpenIdData {
   issuer: string;
 }
 
+interface clientData {
+  id: string;
+  clientId: string;
+  secret: string;
+}
+
 export class KcAPI {
   keycloakBaseUrl: string;
   token: string;
@@ -131,15 +137,11 @@ export class KcAPI {
     }
   }
 
-  private async GetClientSecret(
+  private async GetClientByClientId(
     realmName: string,
     clientId: string,
-  ): Promise<string> {
-    await this.connect();
-    interface clientData {
-      clientId: string;
-      secret: string;
-    }
+  ): Promise<clientData | null> {
+
     await this.connect();
     const response = await fetch<clientData[]>(
       `${this.keycloakBaseUrl}/admin/realms/${realmName}/clients?clientId=${clientId}`,
@@ -153,7 +155,7 @@ export class KcAPI {
 
     if (!response.ok) {
       if (response.status === fetchStatus.NOT_FOUND) {
-        return undefined;
+        return null;
       } else {
         throw new Error(`Failed to get client with clientId ${clientId}`);
       }
@@ -166,9 +168,10 @@ export class KcAPI {
     }
 
     if (clients.length === 1) {
-      return clients[0].secret;
+      return clients[0];
     }
-    return undefined;
+
+    return null;
   }
 
   async GetOrCreateClient(
@@ -179,16 +182,21 @@ export class KcAPI {
   ): Promise<string> {
     await this.connect();
 
-    const secret = await this.GetClientSecret(realmName, clientId);
-    if (secret) {
-      return secret;
+    const client = await this.GetClientByClientId(realmName, clientId);
+    if (client) {
+      return client.secret;
     }
 
     // Otherwise, create a new client
     await this.CreateClient(clientId, clientName, redirectUri, realmName);
 
-    //
-    return await this.GetClientSecret(realmName, clientId);
+    return await this.GetClientByClientId(realmName, clientId).then(client => {
+      if (client) {
+        return client.secret
+      } else {
+        throw new Error(`Failed to fetch newly created client with clientId ${clientId}`);
+      }
+    })
   }
 
   private async CreateClient(
@@ -224,19 +232,23 @@ export class KcAPI {
 
   async DeleteClient(clientId: string, realmName: string) {
     await this.connect();
-    const response = await fetch(
-      `${this.keycloakBaseUrl}/admin/realms/${realmName}/clients/${clientId}`,
-      {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${this.token}`,
+    const client = await this.GetClientByClientId(realmName, clientId);
+
+    if (client) {
+      const response = await fetch(
+        `${this.keycloakBaseUrl}/admin/realms/${realmName}/clients/${client.id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+          },
         },
-      },
-    );
-    if (!response.ok && response.status !== fetchStatus.NOT_FOUND) {
-      throw new Error(
-        `Failed to delete client with clientId ${clientId}, ${response.status}`,
       );
+      if (!response.ok && response.status !== fetchStatus.NOT_FOUND) {
+        throw new Error(
+          `Failed to delete client with clientId ${clientId}, ${response.status}`,
+        );
+      }
     }
   }
 }
