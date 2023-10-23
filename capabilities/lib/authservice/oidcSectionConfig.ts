@@ -176,8 +176,8 @@ export class OIDCConfig {
 
   toObject() {
     return {
-      authorization_uri: this?.authorization_uri,
-      token_uri: this?.token_uri,
+      authorization_uri: this.authorization_uri,
+      token_uri: this.token_uri,
       callback_uri: this.callback_uri,
       client_id: this.client_id,
       client_secret: this.client_secret,
