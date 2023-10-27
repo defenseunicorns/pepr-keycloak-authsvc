@@ -40,7 +40,7 @@
     "test": "npm run test:unit && npm run test:e2e"
   },
   "dependencies": {
-    "pepr": "^0.14.1"
+    "pepr": "^0.15.0"
   },
   "devDependencies": {
     "ava": "5.3.1",
