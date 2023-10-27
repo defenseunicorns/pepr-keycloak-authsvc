@@ -1,7 +1,7 @@
 import anyTest, { TestFn } from "ava";
 
-import { K8sAPI } from "./kubernetes-api";
-import { CustomSecret } from "./authservice/customSecret";
+import { K8sAPI } from "../../capabilities/lib/kubernetes-api";
+import { CustomSecret } from "../../capabilities/lib/authservice/customSecret";
 
 const test = anyTest as TestFn;
 

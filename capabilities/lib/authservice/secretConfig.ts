@@ -166,6 +166,17 @@ interface AuthserviceConfigJSON {
   allow_unmatched_requests?: boolean;
 }
 
+interface AuthserviceConfigJSON {
+  chains: FilterChainJSON[];
+  listen_address: string;
+  listen_port: number;
+  log_level: string;
+  threads: number;
+  trigger_rules?: TriggerRuleJSON[];
+  default_oidc_config?: OIDCConfigJSON;
+  allow_unmatched_requests?: boolean;
+}
+
 export class AuthserviceConfig {
   chains: FilterChain[];
   listen_address: string;

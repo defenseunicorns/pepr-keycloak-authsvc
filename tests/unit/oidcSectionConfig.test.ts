@@ -6,7 +6,7 @@ import {
   LogoutConfig,
   OIDCConfig,
   RedisConfig,
-} from "./oidcSectionConfig";
+} from "../../capabilities/lib/authservice/oidcSectionConfig";
 
 test("IdTokenConfig should create an object correctly", t => {
   const config = new IdTokenConfig();

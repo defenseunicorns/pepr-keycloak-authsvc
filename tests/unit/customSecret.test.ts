@@ -1,5 +1,5 @@
 import anyTest, { TestFn } from "ava";
-import { CustomSecret } from "./customSecret";
+import { CustomSecret } from "../../capabilities/lib/authservice/customSecret";
 
 const test = anyTest as TestFn;
 
@@ -45,9 +45,7 @@ const inavlidTestSecret = {
   },
 };
 
-let base64Secret: CustomSecret,
-  utf8Secret: CustomSecret,
-  invalidSecret: CustomSecret;
+let base64Secret, utf8Secret, invalidSecret;
 
 // Create test secrets for tests
 test.before(async () => {

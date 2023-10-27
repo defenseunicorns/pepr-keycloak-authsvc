@@ -28,7 +28,10 @@ When(a.Secret)
   .WithLabel("pepr.dev/keycloak", "createrealm")
   .Mutate(async request => {
     try {
-      const kcAPI = new KcAPI(getKeyclockBaseURL(request.Raw.data.domain));
+      const kcAPI = new KcAPI(
+        request.Raw.data?.keycloakBaseUrl ||
+          getKeyclockBaseURL(request.Raw.data.domain),
+      );
       await kcAPI.GetOrCreateRealm(request.Raw.data.realm);
     } catch (e) {
       Log.error(`error ${e}`, "Keycloak.Secret.Realm.IsCreatedOrUpdated()");
@@ -47,7 +50,10 @@ When(a.ConfigMap)
   .WithLabel("pepr.dev/keycloak", "createrealm")
   .Mutate(async request => {
     try {
-      const kcAPI = new KcAPI(getKeyclockBaseURL(request.Raw.data.domain));
+      const kcAPI = new KcAPI(
+        request.Raw.data?.keycloakBaseUrl ||
+          getKeyclockBaseURL(request.Raw.data.domain),
+      );
       await kcAPI.ImportRealm(request.Raw.data.realmJson);
     } catch (e) {
       Log.error(`error ${e}`, "Keycloak.ConfigMap.Realm.IsCreatedOrUpdated()");
@@ -69,8 +75,16 @@ When(a.Secret)
         request.Raw.data?.redirectUri ||
         `https://${request.Raw.data.name}.${request.Raw.data.domain}/login`;
 
+      const keycloakBaseUrl =
+        request.Raw.data?.keycloakBaseUrl ||
+        getKeyclockBaseURL(request.Raw.data.domain);
+
       // have keycloak generate the new client and return the secret
-      const kcAPI = new KcAPI(getKeyclockBaseURL(request.Raw.data.domain));
+      Log.info(
+        `Keycloak - Attempting to connect to keycloak at ${keycloakBaseUrl}`,
+      );
+
+      const kcAPI = new KcAPI(keycloakBaseUrl);
       const clientSecret = await kcAPI.GetOrCreateClient(
         request.Raw.data.realm,
         request.Raw.data.name,
@@ -110,7 +124,10 @@ When(a.Secret)
   .WithLabel("pepr.dev/keycloak", "createclient")
   .Mutate(async request => {
     try {
-      const kcAPI = new KcAPI(getKeyclockBaseURL(request.Raw.data.domain));
+      const kcAPI = new KcAPI(
+        request.Raw.data?.keycloakBaseUrl ||
+          getKeyclockBaseURL(request.Raw.data.domain),
+      );
       kcAPI.DeleteClient(request.Raw.data.id, request.Raw.data.realm);
 
       await K8sAPI.deleteSecret(

@@ -1,6 +1,10 @@
 import test from "ava";
-import { AuthserviceConfig, ChainInput, Match } from "./secretConfig";
-import { OIDCConfig } from "./oidcSectionConfig";
+import {
+  AuthserviceConfig,
+  ChainInput,
+  Match,
+} from "../../capabilities/lib/authservice/secretConfig";
+import { OIDCConfig } from "../../capabilities/lib/authservice/oidcSectionConfig";
 
 test("AuthserviceConfig should handle input correctly", t => {
   const chainInput: ChainInput = {
