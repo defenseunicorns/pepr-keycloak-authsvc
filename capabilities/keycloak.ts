@@ -10,7 +10,7 @@ export const Keycloak = new Capability({
   namespaces: [],
 });
 
-const { When } = Keycloak;
+const { When, Store } = Keycloak;
 
 function getKeyclockBaseURL(domain: string) {
   return `https://keycloak.${domain}/auth`;
@@ -60,55 +60,93 @@ When(a.ConfigMap)
     }
   });
 
-// Create a client secret
+// Create a Keycloak Client with a CRD
 /* 
 Example steps:
-    kubectl create secret generic client1 --from-literal=realm=baby-yoda --from-literal=id=podinfo --from-literal=name=podinfo --from-literal=domain=bigbang.dev
-    kubectl label secret client1 pepr.dev/keycloak=createclient
+    kubectl apply -f tests/e2e/local/debug-crd.yaml
+    kubectl apply -f tests/e2e/local/debug-client-crd.yaml
+    kubectl label unicorn client2 pepr.dev/keycloak=createclient
+
+    Alternatively: running npm run debug-local && npx pepr dev --confirm
+    and run label secret manually: kubectl label unicorn client2 pepr.dev/keycloak=createclient
 */
-When(a.Secret)
+When(a.GenericKind, {
+  group: "pepr.dev",
+  version: "v1",
+  kind: "Unicorn",
+})
   .IsCreatedOrUpdated()
   .WithLabel("pepr.dev/keycloak", "createclient")
   .Validate(async request => {
     try {
-      const redirectUri =
-        request.Raw.data?.redirectUri ||
-        `https://${request.Raw.data.name}.${request.Raw.data.domain}/login`;
-
-      const keycloakBaseUrl =
-        request.Raw.data?.keycloakBaseUrl ||
-        getKeyclockBaseURL(request.Raw.data.domain);
-
-      // have keycloak generate the new client and return the secret
-      Log.info(
-        `Keycloak - Attempting to connect to keycloak at ${keycloakBaseUrl}`,
-      );
-
-      const kcAPI = new KcAPI(keycloakBaseUrl);
-      const clientSecret = await kcAPI.GetOrCreateClient(
-        request.Raw.data.realm,
-        request.Raw.data.name,
-        request.Raw.data.id,
-        redirectUri,
-      );
-
-      const newSecret: OidcClientK8sSecretData = {
-        realm: request.Raw.data.realm,
-        id: request.Raw.data.id,
-        name: request.Raw.data.name,
-        domain: request.Raw.data.domain,
-        clientSecret: clientSecret,
-        redirectUri: redirectUri,
+      const crdClientData: OidcClientK8sSecretData = {
+        attributes: request.Raw.spec?.attributes,
+        alwaysDisplayInConsole: request.Raw.spec?.alwaysDisplayInConsole,
+        clientId: request.Raw.spec?.clientId,
+        defaultClientScopes: request.Raw.spec?.defaultClientScopes,
+        description: request.Raw.spec?.description,
+        directAccessGrantsEnabled: request.Raw.spec?.directAccessGrantsEnabled,
+        name: request.Raw.spec?.name,
+        optionalClientScopes: request.Raw.spec?.optionalClientScopes,
+        redirectUris: request.Raw.spec?.redirectUris,
+        webOrigins: request.Raw.spec?.webOrigins,
+        access: request.Raw.spec?.access,
+        adminUrl: request.Raw.spec?.adminUrl,
+        authenticationFlowBindingOverrides:
+          request.Raw.spec?.authenticationFlowBindingOverrides,
+        authorizationServicesEnabled:
+          request.Raw.spec?.authorizationServicesEnabled,
+        baseUrl: request.Raw.spec?.baseUrl,
+        bearerOnly: request.Raw.spec?.bearerOnly,
+        clientAuthenticatorType: request.Raw.spec?.clientAuthenticatorType,
+        consentRequired: request.Raw.spec?.consentRequired,
+        enabled: request.Raw.spec?.enabled,
+        frontchannelLogout: request.Raw.spec?.frontchannelLogout,
+        fullScopeAllowed: request.Raw.spec?.fullScopeAllowed,
+        id: request.Raw.spec?.id,
+        implicitFlowEnabled: request.Raw.spec?.implicitFlowEnabled,
+        nodeReRegistrationTimeout: request.Raw.spec?.nodeReRegistrationTimeout,
+        notBefore: request.Raw.spec?.notBefore,
+        oauth2DeviceAuthorizationGrantEnabled:
+          request.Raw.spec?.oauth2DeviceAuthorizationGrantEnabled,
+        origin: request.Raw.spec?.origin,
+        protocol: request.Raw.spec?.protocol,
+        publicClient: request.Raw.spec?.publicClient,
+        registeredNodes: request.Raw.spec?.registeredNodes,
+        registrationAccessToken: request.Raw.spec?.registrationAccessToken,
+        rootUrl: request.Raw.spec?.rootUrl,
+        secret: request.Raw.spec?.secret,
+        serviceAccountsEnabled: request.Raw.spec?.serviceAccountsEnabled,
+        standardFlowEnabled: request.Raw.spec?.standardFlowEnabled,
+        surrogateAuthRequired: request.Raw.spec?.surrogateAuthRequired,
       };
+
+      const kcAPI = new KcAPI(
+        request.Raw.spec?.keycloakBaseUrl ||
+          getKeyclockBaseURL(request.Raw.spec.domain),
+      );
+
+      crdClientData.clientSecret = await kcAPI.GetOrCreateClient(
+        request.Raw.spec.realm,
+        crdClientData,
+      );
+
+      // Manage undefined fields and convert to JSON string for K8's secret
+      const secretData = Object.keys(crdClientData).reduce((acc, key) => {
+        if (crdClientData[key] !== undefined) {
+          acc[key] = JSON.stringify(crdClientData[key]);
+        }
+        return acc;
+      }, {});
 
       await K8sAPI.applySecret(
         new CustomSecret({
           metadata: {
-            name: `${newSecret.name}-client`,
+            name: `${crdClientData.name}-client`,
             namespace: request.Raw.metadata.namespace,
             labels: { "pepr.dev/keycloak": "oidcconfig" },
           },
-          data: newSecret as unknown as Record<string, string>,
+          stringData: secretData,
         }),
       );
     } catch (e) {
@@ -118,23 +156,34 @@ When(a.Secret)
     return request.Approve();
   });
 
-// Delete the secret from keycloak
-When(a.Secret)
+// Delete the CRD and the client from keycloak
+When(a.GenericKind, {
+  group: "pepr.dev",
+  version: "v1",
+  kind: "Unicorn",
+})
   .IsDeleted()
   .WithLabel("pepr.dev/keycloak", "createclient")
   .Mutate(async request => {
     try {
       const kcAPI = new KcAPI(
-        request.Raw.data?.keycloakBaseUrl ||
-          getKeyclockBaseURL(request.Raw.data.domain),
+        request.Raw.spec?.keycloakBaseUrl ||
+          getKeyclockBaseURL(request.Raw.spec.domain),
       );
-      kcAPI.DeleteClient(request.Raw.data.id, request.Raw.data.realm);
+      kcAPI.DeleteClient(request.Raw.spec.clientId, request.Raw.spec.realm);
 
       await K8sAPI.deleteSecret(
-        `${request.Raw.data.name}-client`,
+        `${request.Raw.spec.name}-client`,
         request.Raw.metadata.namespace,
       );
     } catch (e) {
       Log.error(`error ${e}`, "Keycloak.Client.Secret.IsDeleted()");
     }
   });
+
+/**
+ * A callback function that is called once the Pepr Store is fully loaded.
+ */
+Store.onReady(data => {
+  Log.info(data, "Pepr Store Ready");
+});

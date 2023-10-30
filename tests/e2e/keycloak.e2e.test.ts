@@ -7,29 +7,35 @@ import { RequestInfo } from "node-fetch";
 // run shell command asynchronously
 const execAsync = util.promisify(exec);
 
-test.serial("E2E Test: Create New Client from Generic Secret", async t => {
+test.serial("E2E Test: Create New Client from Generic Kind", async t => {
   // Define the kubcetl command to label secret for pepr operator
   const labelSecret =
-    'kubectl label secret client1 -n keycloak "pepr.dev/keycloak=createclient"';
+    'kubectl label unicorn client2 -n default "pepr.dev/keycloak=createclient"';
 
   try {
     const { stdout: labelout, stderr: labelerr } = await execAsync(labelSecret);
 
-    t.truthy(labelout, "Kubectl command to label new secret produced output");
+    t.truthy(
+      labelout,
+      "Kubectl command to label new unicorn kind produced output",
+    );
     t.falsy(
       labelerr,
-      "kubectl command to label new secret produced no stderr output",
+      "kubectl command to label new unicorn kind produced no stderr output",
     );
 
     // Get the newly created secret that should have been created by pepr-keycloak-authsvc and keycloak
-    const getNewSecret = "kubectl get secret client1 -n keycloak";
+    const getNewSecret = "kubectl get secret podinfo-client -n default";
     const { stdout: newSecretOut, stderr: newSecretErr } =
       await execAsync(getNewSecret);
 
-    t.truthy(newSecretOut, "Kubectl command to get new secret produced output");
+    t.truthy(
+      newSecretOut,
+      "Kubectl command to get new unicorn kind produced output",
+    );
     t.falsy(
       newSecretErr,
-      "kubectl command to get new secret produced no stderr output",
+      "kubectl command to get new unicorn kind produced no stderr output",
     );
   } catch (e) {
     t.fail("Failed to run kubectl command without errors: " + e.message);
@@ -63,7 +69,7 @@ test.serial("E2E Test: Create a realm from generic secret", async t => {
 
 test.serial("E2E Test: Delete a client when secret is deleted", async t => {
   // Define the kubectl command to delete secret
-  const deleteSecret = "kubectl delete secret client1 -n keycloak";
+  const deleteSecret = "kubectl delete unicorn client2 -n defualt";
 
   try {
     const { stdout: deleteOut, stderr: deleteErr } =
@@ -77,7 +83,7 @@ test.serial("E2E Test: Delete a client when secret is deleted", async t => {
 
     // Attempt to get the newly deleted secret
     try {
-      const getNewSecret = "kubectl get secret client1 -n keycloak";
+      const getNewSecret = "kubectl get secret podinfo-client -n default";
       await execAsync(getNewSecret);
 
       t.fail("Secret should not exist anymore but it does.");

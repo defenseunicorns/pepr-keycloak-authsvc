@@ -1,12 +1,6 @@
 import { K8sAPI } from "./kubernetes-api";
 import { fetch, fetchStatus } from "pepr";
-
-export interface Client {
-  clientId: string;
-  clientName: string;
-  clientSecret: string;
-  redirectUri: string[];
-}
+import { OidcClientK8sSecretData } from "./types";
 
 export interface OpenIdData {
   authorization_endpoint: string;
@@ -174,51 +168,44 @@ export class KcAPI {
   }
 
   async GetOrCreateClient(
-    realmName: string,
-    clientName: string,
-    clientId: string,
-    redirectUri: string,
+    realm: string,
+    clientSecret: OidcClientK8sSecretData,
   ): Promise<string> {
     await this.connect();
 
-    const client = await this.GetClientByClientId(realmName, clientId);
+    const client = await this.GetClientByClientId(realm, clientSecret.clientId);
     if (client) {
+      // return client that already exists
       return client.secret;
     }
 
     // Otherwise, create a new client
-    await this.CreateClient(clientId, clientName, redirectUri, realmName);
+    await this.CreateClient(realm, clientSecret);
 
-    return await this.GetClientByClientId(realmName, clientId).then(client => {
-      if (client) {
-        return client.secret;
-      } else {
-        throw new Error(
-          `Failed to fetch newly created client with clientId ${clientId}`,
-        );
-      }
-    });
+    return await this.GetClientByClientId(realm, clientSecret.clientId).then(
+      client => {
+        if (client) {
+          return client.secret;
+        } else {
+          throw new Error(
+            `Failed to fetch newly created client with clientId ${clientSecret.clientId}`,
+          );
+        }
+      },
+    );
   }
 
   private async CreateClient(
-    clientId: string,
-    clientName: string,
-    redirectUri: string,
-    realmName: string,
+    realm: string,
+    clientSecret: OidcClientK8sSecretData,
   ) {
     await this.connect();
 
-    const newClient = {
-      clientId: clientId,
-      name: clientName,
-      redirectUris: [redirectUri],
-    };
-
     const response = await fetch(
-      `${this.keycloakBaseUrl}/admin/realms/${realmName}/clients`,
+      `${this.keycloakBaseUrl}/admin/realms/${realm}/clients`,
       {
         method: "POST",
-        body: JSON.stringify(newClient),
+        body: JSON.stringify(clientSecret),
         headers: {
           Authorization: `Bearer ${this.token}`,
           "Content-Type": "application/json",
@@ -227,7 +214,9 @@ export class KcAPI {
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to create client with clientId ${clientId}`);
+      throw new Error(
+        `Failed to create client with clientId ${clientSecret.clientId}`,
+      );
     }
   }
 

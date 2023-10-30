@@ -1,8 +1,5 @@
 export interface OidcClientK8sSecretData {
-  realm: string;
-  id: string;
+  clientId: string;
   name: string;
-  domain: string;
-  clientSecret: string;
-  redirectUri: string;
+  [key: string]: string | string[] | boolean;
 }

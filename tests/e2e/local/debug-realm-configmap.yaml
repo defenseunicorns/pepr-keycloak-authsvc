@@ -1,6 +1,11 @@
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  name: realm-configmap
+  namespace: keycloak
 data:
-  keycloakBaseUrl: http://keycloak-http.keycloak.svc.cluster.local/auth
+  keycloakBaseUrl: http://localhost:8080/auth
   realmJson: |-
     {
       "id": "3dd40c6e-853b-460c-ad8a-4e5fb6c98d70",
@@ -753,6 +758,18 @@ data:
         }
       ],
       "clientScopes": [
+        {
+          "id": "22a10bdd-659b-4170-881a-9117873a1f2a",
+          "name": "e2e-test-scope",
+          "description": "",
+          "protocol": "openid-connect",
+          "attributes": {
+            "include.in.token.scope": "true",
+            "display.on.consent.screen": "true",
+            "gui.order": "",
+            "consent.screen.text": ""
+          }
+        },
         {
           "id": "4b06b283-4aaf-493d-a8d0-d3d0f9fc7e12",
           "name": "phone",
@@ -2103,8 +2120,3 @@ data:
       }
     }
   domain: a2V5Y2xvYWstaHR0cC5rZXljbG9hay1zdmMuY2x1c3Rlci5sb2NhbA==
-kind: ConfigMap
-metadata:
-  creationTimestamp: null
-  name: realm-configmap
-  namespace: keycloak

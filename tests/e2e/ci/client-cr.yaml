@@ -1,0 +1,28 @@
+apiVersion: pepr.dev/v1
+kind: Unicorn
+metadata:
+  name: client2
+spec:
+### REQUIRED FIELDS ###
+  keycloakBaseUrl: http://keycloak-http.keycloak.svc.cluster.local/auth
+  realm: master
+  clientId: "podinfo"
+  name: "podinfo"
+### OPTIONAL FIELDS ###
+  alwaysDisplayInConsole: true
+  attributes:
+    post.logout.redirect.uris: "+"
+    pkce.code.challenge.method: "S256"
+  defaultClientScopes:
+    - "profile"
+  description: "My Keycloak client"
+  directAccessGrantsEnabled: true
+  domain: "keycloak-http.keycloak-svc.cluster.local"
+  optionalClientScopes:
+    - "phone"
+  redirectUris:
+    - "http://keycloak-http.keycloak.svc.cluster.local/login"
+    - "http://keycloak-http.keycloak.svc.cluster.local/auth"
+  webOrigins:
+    - "test/*"
+    - "auth/*"
