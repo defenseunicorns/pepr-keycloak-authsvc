@@ -69,7 +69,7 @@ test.serial("E2E Test: Create a realm from generic secret", async t => {
 
 test.serial("E2E Test: Delete a client when secret is deleted", async t => {
   // Define the kubectl command to delete secret
-  const deleteSecret = "kubectl delete unicorn client2 -n defualt";
+  const deleteSecret = "kubectl delete unicorn client2 -n default";
 
   try {
     const { stdout: deleteOut, stderr: deleteErr } =
