@@ -3,6 +3,7 @@ import { KcAPI } from "./lib/kc-api";
 import { K8sAPI } from "./lib/kubernetes-api";
 import { OidcClientK8sSecretData } from "./lib/types";
 import { CustomSecret } from "./lib/authservice/customSecret";
+import { KeycloakClient } from "./crds/keycloakclient-v1";
 
 export const Keycloak = new Capability({
   name: "Keycloak",
@@ -66,18 +67,17 @@ Example steps:
     kubectl create secret generic client1 --from-literal=realm=baby-yoda --from-literal=id=podinfo --from-literal=name=podinfo --from-literal=domain=bigbang.dev
     kubectl label secret client1 pepr.dev/keycloak=createclient
 */
-When(a.Secret)
+When(KeycloakClient)
   .IsCreatedOrUpdated()
-  .WithLabel("pepr.dev/keycloak", "createclient")
   .Validate(async request => {
     try {
       const redirectUri =
-        request.Raw.data?.redirectUri ||
-        `https://${request.Raw.data.name}.${request.Raw.data.domain}/login`;
+        request.Raw.spec.client?.redirectUris ||
+        `https://${request.Raw.spec.client.name}.${request.Raw.spec.domain}/login`;
 
       const keycloakBaseUrl =
-        request.Raw.data?.keycloakBaseUrl ||
-        getKeyclockBaseURL(request.Raw.data.domain);
+        request.Raw.spec?.keycloakBaseUrl ||
+        getKeyclockBaseURL(request.Raw.spec.domain);
 
       // have keycloak generate the new client and return the secret
       Log.info(
@@ -86,19 +86,17 @@ When(a.Secret)
 
       const kcAPI = new KcAPI(keycloakBaseUrl);
       const clientSecret = await kcAPI.GetOrCreateClient(
-        request.Raw.data.realm,
-        request.Raw.data.name,
-        request.Raw.data.id,
-        redirectUri,
+        request.Raw.spec.realm,
+        request.Raw.spec.client
       );
 
       const newSecret: OidcClientK8sSecretData = {
-        realm: request.Raw.data.realm,
-        id: request.Raw.data.id,
-        name: request.Raw.data.name,
-        domain: request.Raw.data.domain,
+        realm: request.Raw.spec.realm,
+        id: request.Raw.spec.client.clientId,
+        name: request.Raw.spec.client.name,
+        domain: request.Raw.spec.domain,
         clientSecret: clientSecret,
-        redirectUri: redirectUri,
+        redirectUri: redirectUri[0],
       };
 
       await K8sAPI.applySecret(
@@ -119,19 +117,18 @@ When(a.Secret)
   });
 
 // Delete the secret from keycloak
-When(a.Secret)
+When(KeycloakClient)
   .IsDeleted()
-  .WithLabel("pepr.dev/keycloak", "createclient")
   .Mutate(async request => {
     try {
       const kcAPI = new KcAPI(
-        request.Raw.data?.keycloakBaseUrl ||
-          getKeyclockBaseURL(request.Raw.data.domain),
+        request.Raw.spec?.keycloakBaseUrl ||
+          getKeyclockBaseURL(request.Raw.spec.domain),
       );
-      kcAPI.DeleteClient(request.Raw.data.id, request.Raw.data.realm);
+      kcAPI.DeleteClient(request.Raw.spec.client.clientId, request.Raw.spec.realm);
 
       await K8sAPI.deleteSecret(
-        `${request.Raw.data.name}-client`,
+        `${request.Raw.spec.client.name}-client`,
         request.Raw.metadata.namespace,
       );
     } catch (e) {

@@ -1,12 +1,6 @@
+import { Client } from "../crds/keycloakclient-v1";
 import { K8sAPI } from "./kubernetes-api";
 import { fetch, fetchStatus } from "pepr";
-
-export interface Client {
-  clientId: string;
-  clientName: string;
-  clientSecret: string;
-  redirectUri: string[];
-}
 
 export interface OpenIdData {
   authorization_endpoint: string;
@@ -175,50 +169,40 @@ export class KcAPI {
 
   async GetOrCreateClient(
     realmName: string,
-    clientName: string,
-    clientId: string,
-    redirectUri: string,
+    c: Client
   ): Promise<string> {
     await this.connect();
 
-    const client = await this.GetClientByClientId(realmName, clientId);
+    const client = await this.GetClientByClientId(realmName, c.clientId);
     if (client) {
       return client.secret;
     }
 
     // Otherwise, create a new client
-    await this.CreateClient(clientId, clientName, redirectUri, realmName);
+    await this.CreateClient(realmName, c);
 
-    return await this.GetClientByClientId(realmName, clientId).then(client => {
+    return await this.GetClientByClientId(realmName, c.clientId).then(client => {
       if (client) {
         return client.secret;
       } else {
         throw new Error(
-          `Failed to fetch newly created client with clientId ${clientId}`,
+          `Failed to fetch newly created client with clientId ${c.clientId}`,
         );
       }
     });
   }
 
   private async CreateClient(
-    clientId: string,
-    clientName: string,
-    redirectUri: string,
     realmName: string,
+    client: Client
   ) {
     await this.connect();
-
-    const newClient = {
-      clientId: clientId,
-      name: clientName,
-      redirectUris: [redirectUri],
-    };
 
     const response = await fetch(
       `${this.keycloakBaseUrl}/admin/realms/${realmName}/clients`,
       {
         method: "POST",
-        body: JSON.stringify(newClient),
+        body: JSON.stringify(client),
         headers: {
           Authorization: `Bearer ${this.token}`,
           "Content-Type": "application/json",
@@ -227,7 +211,7 @@ export class KcAPI {
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to create client with clientId ${clientId}`);
+      throw new Error(`Failed to create client with clientId ${client.clientId}`);
     }
   }
 

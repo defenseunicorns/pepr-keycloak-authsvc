@@ -34,8 +34,9 @@
   "scripts": {
     "build": "rm -fr dist && npx pepr build -e index.ts",
     "k3d-setup": "k3d cluster delete pepr-dev; k3d cluster create pepr-dev --k3s-arg '--debug@server:0' -p '443:443@loadbalancer' -p '80:80@loadbalancer' --k3s-arg='--disable=traefik@server:0'",
+    "crds": "kubectl apply -f capabilities/crds/keycloak-client-crd.yaml",
     "test:e2e:deps": "npm run k3d-setup && npx pepr deploy --confirm && cd tests/e2e && ./keycloak.sh",
-    "test:e2e": "npm run test:e2e:deps && ava tests/e2e/*.ts",
+    "test:e2e": "npm run test:e2e:deps && npm run crds && ava tests/e2e/*.ts",
     "test:unit": "ava tests/unit/*.ts",
     "test": "npm run test:unit && npm run test:e2e"
   },

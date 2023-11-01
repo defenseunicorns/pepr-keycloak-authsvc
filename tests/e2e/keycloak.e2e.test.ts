@@ -10,7 +10,7 @@ const execAsync = util.promisify(exec);
 test.serial("E2E Test: Create New Client from Generic Secret", async t => {
   // Define the kubcetl command to label secret for pepr operator
   const labelSecret =
-    'kubectl label secret client1 -n keycloak "pepr.dev/keycloak=createclient"';
+    'kubectl apply -f tests/e2e/keycloak-client-cr.yaml -n keycloak ';
 
   try {
     const { stdout: labelout, stderr: labelerr } = await execAsync(labelSecret);
@@ -22,7 +22,7 @@ test.serial("E2E Test: Create New Client from Generic Secret", async t => {
     );
 
     // Get the newly created secret that should have been created by pepr-keycloak-authsvc and keycloak
-    const getNewSecret = "kubectl get secret client1 -n keycloak";
+    const getNewSecret = "kubectl get keycloakclient/client2 -n keycloak";
     const { stdout: newSecretOut, stderr: newSecretErr } =
       await execAsync(getNewSecret);
 
@@ -63,7 +63,7 @@ test.serial("E2E Test: Create a realm from generic secret", async t => {
 
 test.serial("E2E Test: Delete a client when secret is deleted", async t => {
   // Define the kubectl command to delete secret
-  const deleteSecret = "kubectl delete secret client1 -n keycloak";
+  const deleteSecret = "kubectl delete keycloakclient/client2 -n keycloak";
 
   try {
     const { stdout: deleteOut, stderr: deleteErr } =
@@ -77,7 +77,7 @@ test.serial("E2E Test: Delete a client when secret is deleted", async t => {
 
     // Attempt to get the newly deleted secret
     try {
-      const getNewSecret = "kubectl get secret client1 -n keycloak";
+      const getNewSecret = "kubectl get keycloakclient/client2 -n keycloak";
       await execAsync(getNewSecret);
 
       t.fail("Secret should not exist anymore but it does.");

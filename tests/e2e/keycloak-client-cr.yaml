@@ -1,0 +1,17 @@
+apiVersion: pepr.dev/v1
+kind: KeycloakClient
+metadata:
+  name: client2
+spec:
+  keycloakBaseUrl: http://keycloak-http.keycloak.svc.cluster.local/auth
+  realm: master
+  domain: "keycloak-http.keycloak-svc.cluster.local"
+  client:
+    clientId: "podinfo"
+    name: "podinfo"
+    defaultClientScopes:
+      - "profile"
+    description: "My Keycloak client"
+    redirectUris:
+      - "http://keycloak-http.keycloak.svc.cluster.local/login"
+      - "http://keycloak-http.keycloak.svc.cluster.local/auth"
