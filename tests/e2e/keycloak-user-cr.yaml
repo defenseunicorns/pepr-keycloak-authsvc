@@ -3,7 +3,7 @@ kind: KeycloakUser
 metadata:
   name: user1
 spec:
-  keycloakBaseUrl: http://localhost:8080/auth
+  keycloakBaseUrl: http://keycloak-http.keycloak.svc.cluster.local/auth
   realm: master
   user:
     username: pepr-user

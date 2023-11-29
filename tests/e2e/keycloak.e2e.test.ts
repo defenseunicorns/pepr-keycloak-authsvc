@@ -125,6 +125,64 @@ test.serial("E2E Test: Create realm from configmap", async t => {
   }
 });
 
+test.serial("E2E Test: Update Client with Custom Resource", async t => {
+  await execAsync(
+    "kubectl apply -f tests/e2e/keycloak-client-cr.yaml -n keycloak ",
+  );
+
+  const existingClient = await getRequest(
+    "http://localhost:8080/auth/admin/realms/master/clients?clientId=podinfo",
+  );
+
+  t.is(existingClient.data[0].description, "My Keycloak client");
+
+  // Define the kubcetl command to label secret for pepr operator
+  const updatedCR =
+    "kubectl apply -f tests/e2e/updated-client-cr.yaml -n keycloak ";
+
+  try {
+    const { stdout: applyout, stderr: applyerr } = await execAsync(updatedCR);
+
+    t.truthy(applyout, "Kubectl command to label new secret produced output");
+    t.falsy(
+      applyerr,
+      "kubectl command to label new secret produced no stderr output",
+    );
+
+    const clientId = await getRequest(
+      "http://localhost:8080/auth/admin/realms/master/clients?clientId=podinfo",
+    );
+
+    t.is(clientId.data[0].description, "Updated Description");
+    t.is(existingClient.data[0].id, clientId.data[0].id);
+  } catch (e) {
+    t.fail("Failed to run kubectl command without errors: " + e.message);
+  }
+});
+
+test.serial("E2E Test: Create User with Custom Resource", async t => {
+  // kubectl create user crd
+  const newUser = "kubectl apply -f tests/e2e/keycloak-user-cr.yaml";
+
+  try {
+    const { stdout: newUserout, stderr: newUsererr } = await execAsync(newUser);
+
+    t.truthy(newUserout, "Kubectl command to label new secret produced output");
+    t.falsy(
+      newUsererr,
+      "kubectl command to label new secret produced no stderr output",
+    );
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    const getUser = await getRequest(
+      "http://localhost:8080/auth/admin/realms/master/users?username=pepr-user",
+    );
+
+    t.is(getUser.data[0].firstName, "Pepr");
+  } catch (e) {
+    t.fail("Failed to run kubectl command without errors: " + e.message);
+  }
+});
+
 /****************************
   Testing Helper Functions
 *****************************/

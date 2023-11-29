@@ -25,7 +25,7 @@ export interface Client {
   baseUrl?: string;
   bearerOnly?: boolean;
   clientAuthenticatorType?: string;
-  clientId: string;
+  clientId?: string;
   consentRequired?: boolean;
   defaultClientScopes?: string[];
   description?: string;

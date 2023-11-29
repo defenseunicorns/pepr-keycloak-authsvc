@@ -21,72 +21,75 @@ spec:
                   type: string
                 domain:
                   type: string
-                username:
-                  type: string
-                firstName:
-                  type: string
-                lastName:
-                  type: string
-                email:
-                  type: string
-                enabled:
-                  type: boolean
-                emailVerified:
-                  type: boolean
-                credentials:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      type:
-                        type: string
-                      userLabel:
-                        type: string
-                      createdDate:
-                        type: number
-                      credentialData:
-                        type: string
-                      priority:
-                        type: string
-                      value:
-                        type: string
-                      temporary:
-                        type: boolean
-                      device:
-                        type: string
-                      hashedSaltedValue:
-                        type: string
-                      salt:
-                        type: string
-                      hashIterations:
-                        type: integer
-                        format: int32
-                      counter:
-                        type: integer
-                        format: int32
-                      algorithm:
-                        type: string
-                      digits:
-                        type: integer
-                        format: int32
-                      period:
-                        type: integer
-                        format: int32
-                      config:
-                        type: object
-                        additionalProperties: true
-                realmRoles:
-                  type: array
-                  items:
-                    type: string
-                clientRoles:
+                user:
                   type: object
-                  additionalProperties:
-                    type: array
-                    items:
+                  properties:
+                    username:
                       type: string
+                    firstName:
+                      type: string
+                    lastName:
+                      type: string
+                    email:
+                      type: string
+                    enabled:
+                      type: boolean
+                    emailVerified:
+                      type: boolean
+                    credentials:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          type:
+                            type: string
+                          userLabel:
+                            type: string
+                          createdDate:
+                            type: number
+                          credentialData:
+                            type: string
+                          priority:
+                            type: string
+                          value:
+                            type: string
+                          temporary:
+                            type: boolean
+                          device:
+                            type: string
+                          hashedSaltedValue:
+                            type: string
+                          salt:
+                            type: string
+                          hashIterations:
+                            type: integer
+                            format: int32
+                          counter:
+                            type: integer
+                            format: int32
+                          algorithm:
+                            type: string
+                          digits:
+                            type: integer
+                            format: int32
+                          period:
+                            type: integer
+                            format: int32
+                          config:
+                            type: object
+                            additionalProperties: true
+                    realmRoles:
+                      type: array
+                      items:
+                        type: string
+                    clientRoles:
+                      type: object
+                      additionalProperties:
+                        type: array
+                        items:
+                          type: string
   scope: Namespaced
   names:
     plural: keycloakusers

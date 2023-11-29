@@ -1,3 +1,5 @@
+import { KeycloakClient } from "../crds/keycloakclient-v1";
+import { KeycloakUser } from "../crds/keycloakuser-v1";
 import { K8sAPI } from "./kubernetes-api";
 import { fetch, fetchStatus } from "pepr";
 
@@ -166,9 +168,9 @@ export class KcAPI {
     return null;
   }
 
-  async GetOrCreateClient<T extends { clientId: string }>(
+  async UpdateOrCreateClient(
     realmName: string,
-    client: T,
+    client: KeycloakClient,
   ): Promise<string> {
     if (!client.clientId) {
       throw new Error(`Invalid clientId. It must be provided.`);
@@ -180,14 +182,11 @@ export class KcAPI {
       realmName,
       client.clientId,
     );
-    // secret already exists
+
     if (clientExists) {
-      // todo: should this call the update client update endpoint so that if a CRD is updated the client is updated
-      // todo: the endpoint for updating a client is /admin/realms/${realmName}/clients/${clientExists.id}, if we do update
-      // todo: that means someone could overwrite an existing secret with a new secret without knowning. maybe something
-      // todo: special to trigger an update specifically, like a label clientupdate + the update to the crd?
+      //todo: update docs to specifically state that its possible to override an existing client
       // secret exists, update it
-      await this.UpdateClient(realmName, client.clientId, client);
+      await this.UpdateClient(realmName, clientExists.id, client);
     } else {
       // Otherwise, create a new client
       await this.CreateClient(realmName, client);
@@ -206,10 +205,7 @@ export class KcAPI {
     );
   }
 
-  private async CreateClient<T extends { clientId: string }>(
-    realmName: string,
-    client: T,
-  ) {
+  private async CreateClient(realmName: string, client: KeycloakClient) {
     await this.connect();
 
     const response = await fetch(
@@ -231,11 +227,15 @@ export class KcAPI {
     }
   }
 
-  private async UpdateClient<T>(realmName: string, clientId: string, client: T) {
+  private async UpdateClient(
+    realmName: string,
+    clientId: string,
+    client: KeycloakClient,
+  ) {
     const response = await fetch(
       `${this.keycloakBaseUrl}/admin/realms/${realmName}/clients/${clientId}`,
       {
-        method: "POST",
+        method: "PUT",
         body: JSON.stringify(client),
         headers: {
           Authorization: `Bearer ${this.token}`,
@@ -245,9 +245,7 @@ export class KcAPI {
     );
 
     if (!response.ok) {
-      throw new Error(
-        `Failed to create client with clientId ${clientId}`,
-      );
+      throw new Error(`Failed to create client with clientId ${clientId}`);
     }
   }
 
@@ -273,8 +271,11 @@ export class KcAPI {
     }
   }
 
-  async CreateUser<T>(realm: string, usersData: T) {
+  async UpdateOrCreateUser(realm: string, usersData: KeycloakUser) {
     await this.connect();
+
+    // todo: add functionality for updating a user
+
     const response = await fetch(
       `${this.keycloakBaseUrl}/admin/realms/${realm}/users`,
       {
@@ -291,4 +292,7 @@ export class KcAPI {
       throw new Error(`Failed to create User(s), ${response.status}`);
     }
   }
+
+  // todo: implement this functionality
+  async DeleteUser() {}
 }

@@ -2,6 +2,8 @@ import { Capability, Log, a } from "pepr";
 import { KcAPI } from "./lib/kc-api";
 import { K8sAPI } from "./lib/kubernetes-api";
 import { CustomSecret } from "./lib/authservice/customSecret";
+import { KeycloakClient } from "./crds/keycloakclient-v1";
+import { KeycloakUser } from "./crds/keycloakuser-v1";
 
 export const Keycloak = new Capability({
   name: "Keycloak",
@@ -69,12 +71,7 @@ Example steps:
       npm run debug
       kubectl apply -f tests/e2e/debug/keycloak-client-cr.yaml
 */
-When(a.GenericKind, {
-  group: "pepr.dev",
-  version: "v1",
-  kind: "KeycloakClient",
-})
-  // todo: if not supporting updates, this should only be IsCreated()
+When(KeycloakClient)
   .IsCreatedOrUpdated()
   .Validate(async request => {
     try {
@@ -88,7 +85,7 @@ When(a.GenericKind, {
       );
 
       const kcAPI = new KcAPI(keycloakBaseUrl);
-      const clientSecret = await kcAPI.GetOrCreateClient(
+      const clientSecret = await kcAPI.UpdateOrCreateClient(
         request.Raw.spec.realm,
         request.Raw.spec.client,
       );
@@ -123,11 +120,7 @@ Example steps:
   Remove Client CRD:
     kubectl delete keycloakclient client2 -n default
 */
-When(a.GenericKind, {
-  group: "pepr.dev",
-  version: "v1",
-  kind: "KeycloakClient",
-})
+When(KeycloakClient)
   .IsDeleted()
   .Mutate(async request => {
     try {
@@ -150,11 +143,7 @@ When(a.GenericKind, {
   });
 
 // Create Keycloak Users from CRD
-When(a.GenericKind, {
-  group: "pepr.dev",
-  version: "v1",
-  kind: "KeycloakUser",
-})
+When(KeycloakUser)
   .IsCreatedOrUpdated()
   .Mutate(async request => {
     try {
@@ -164,7 +153,7 @@ When(a.GenericKind, {
       );
 
       // create basic user
-      kcAPI.CreateUser(request.Raw.spec.realm, request.Raw.spec.user);
+      kcAPI.UpdateOrCreateUser(request.Raw.spec.realm, request.Raw.spec.user);
 
       // todo: need to add additional logic for creating a users roles,
       // todo: probably need to call the update user endpoint or fetch
@@ -173,3 +162,5 @@ When(a.GenericKind, {
       Log.error(`error ${e}`, "Keycloak Create Users");
     }
   });
+
+//todo: implement delete user functionality
