@@ -3,3 +3,8 @@ export interface OidcClientK8sSecretData {
   name: string;
   [key: string]: string | string[] | boolean;
 }
+
+export interface UserData {
+  username: string;
+  [key: string]: string | string[] | boolean;
+}

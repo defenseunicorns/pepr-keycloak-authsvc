@@ -1,7 +1,7 @@
 import { Capability, Log, a } from "pepr";
 import { KcAPI } from "./lib/kc-api";
 import { K8sAPI } from "./lib/kubernetes-api";
-import { OidcClientK8sSecretData } from "./lib/types";
+import { OidcClientK8sSecretData, UserData } from "./lib/types";
 import { CustomSecret } from "./lib/authservice/customSecret";
 
 export const Keycloak = new Capability({
@@ -178,6 +178,61 @@ When(a.GenericKind, {
       );
     } catch (e) {
       Log.error(`error ${e}`, "Keycloak.Client.Secret.IsDeleted()");
+    }
+  });
+
+// Create Keycloak Users from CRD
+When(a.GenericKind, {
+  group: "pepr.dev",
+  version: "v1",
+  kind: "Unicorn",
+})
+  .IsUpdated()
+  .WithLabel("pepr.dev/keycloak", "createuser")
+  .Mutate(async request => {
+    try {
+      const crdUserData: UserData = {
+        self: request.Raw.spec?.self,
+        id: request.Raw.spec?.id,
+        origin: request.Raw.spec?.origin,
+        createdTimestamp: request.Raw.spec?.createdTimestamp,
+        username: request.Raw.spec?.username,
+        enabled: request.Raw.spec?.enabled,
+        totp: request.Raw.spec?.totp,
+        emailVerified: request.Raw.spec?.emailVerified,
+        firstName: request.Raw.spec?.firstName,
+        lastName: request.Raw.spec?.lastName,
+        email: request.Raw.spec?.email,
+        federationLink: request.Raw.spec?.federationLink,
+        serviceAccountClientId: request.Raw.spec?.serviceAccountClientId,
+        attributes: request.Raw.spec?.attributes,
+        credentials: request.Raw.spec?.credentials,
+        disableableCredentialTypes: request.Raw.spec?.disableableCredentialTypes,
+        requiredActions: request.Raw.spec?.requiredActions,
+        federatedIdentities: request.Raw.spec?.federatedIdentities,
+        realmRoles: request.Raw.spec?.realmRoles,
+        clientRoles: request.Raw.spec?.clientRoles,
+        clientConsents: request.Raw.spec?.clientConsents,
+        notBefore: request.Raw.spec?.notBefore,
+        applicationRoles: request.Raw.spec?.applicationRoles,
+        socialLinks: request.Raw.spec?.socialLinks,
+        groups: request.Raw.spec?.groups,
+        access: request.Raw.spec?.access,
+      };
+
+      const kcAPI = new KcAPI(
+        request.Raw.spec?.keycloakBaseUrl ||
+          getKeyclockBaseURL(request.Raw.spec.domain),
+      );
+      
+        kcAPI.CreateUser(request.Raw.spec.realm, crdUserData);
+
+        // todo: need to add additional logic for creating a users roles, 
+        // todo: probably need to call the update user endpoint or fetch
+        // todo: the roles to get the role id and then update the user roles endpoint
+
+    } catch (e) {
+      Log.error(`error ${e}`, "Keycloak Create Users");
     }
   });
 

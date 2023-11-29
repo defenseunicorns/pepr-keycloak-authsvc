@@ -1,6 +1,6 @@
 import { K8sAPI } from "./kubernetes-api";
 import { fetch, fetchStatus } from "pepr";
-import { OidcClientK8sSecretData } from "./types";
+import { OidcClientK8sSecretData, UserData } from "./types";
 
 export interface OpenIdData {
   authorization_endpoint: string;
@@ -239,6 +239,27 @@ export class KcAPI {
           `Failed to delete client with clientId ${clientId}, ${response.status}`,
         );
       }
+    }
+  }
+
+  async CreateUser(realm: string, usersData: UserData) {
+    await this.connect();
+    const response = await fetch(
+      `${this.keycloakBaseUrl}/admin/realms/${realm}/users`,
+      {
+        method: "POST",
+        body: JSON.stringify(usersData),
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to create User(s), ${response.status}`,
+      );
     }
   }
 }

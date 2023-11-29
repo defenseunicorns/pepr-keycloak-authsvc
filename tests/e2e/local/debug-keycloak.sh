@@ -13,6 +13,10 @@ kubectl apply -f debug-realm-configmap.yaml
 kubectl apply -f debug-client-crd.yaml
 # Create the CR for KC client
 kubectl apply -f debug-client-cr.yaml
+# Create User CRD
+kubectl apply -f debug-users-crd.yaml
+# Create the CR for User
+kubectl apply -f debug-users-cr.yaml
 
 # Port forward keycloak for access
 kubectl port-forward -n keycloak service/keycloak-http 8080:80 &

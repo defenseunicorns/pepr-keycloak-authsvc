@@ -1,0 +1,25 @@
+apiVersion: pepr.dev/v1
+kind: Unicorn
+metadata:
+  name: user1
+spec:
+  ### REQUIRED PROPERTIES ###
+  keycloakBaseUrl: http://localhost:8080/auth
+  realm: master
+  username: pepr-user
+  ### OPTIONAL PROPERTIES ###
+  firstName: "Pepr"
+  lastName: "User"
+  email: "pepr-user@defenseunicorns.com"
+  enabled: True
+  emailVerified: true
+  credentials:
+    - type: "password"
+      value: "12345"
+  realmRoles:
+    - "offline_access"
+  clientRoles:
+    account:
+      - "manage-account"
+    master-realm:
+      - "manage-users"
