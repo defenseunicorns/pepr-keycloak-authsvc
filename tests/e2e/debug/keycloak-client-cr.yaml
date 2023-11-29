@@ -3,25 +3,25 @@ kind: KeycloakClient
 metadata:
   name: client2
 spec:
-  keycloakBaseUrl: http://keycloak-http.keycloak.svc.cluster.local/auth
+  keycloakBaseUrl: http://localhost:8080/auth
   realm: master
   domain: "keycloak-http.keycloak-svc.cluster.local"
   client:
     clientId: "podinfo"
     name: "podinfo"
-    defaultClientScopes:
-      - "profile"
-    description: "My Keycloak client"
-    redirectUris:
-      - "http://keycloak-http.keycloak.svc.cluster.local/login"
-      - "http://keycloak-http.keycloak.svc.cluster.local/auth"
     alwaysDisplayInConsole: true
     attributes:
       post.logout.redirect.uris: "+"
       pkce.code.challenge.method: "S256"
+    defaultClientScopes:
+      - "profile"
+    description: "My Keycloak client description 12"
     directAccessGrantsEnabled: true
     optionalClientScopes:
       - "phone"
+    redirectUris:
+      - "http://localhost:8080/login"
+      - "http://localhost:8080/auth"
     webOrigins:
       - "test/*"
       - "auth/*"

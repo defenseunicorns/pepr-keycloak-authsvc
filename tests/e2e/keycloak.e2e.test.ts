@@ -7,17 +7,17 @@ import { RequestInfo } from "node-fetch";
 // run shell command asynchronously
 const execAsync = util.promisify(exec);
 
-test.serial("E2E Test: Create New Client from Generic Secret", async t => {
+test.serial("E2E Test: Create New Client from Custom Resource", async t => {
   // Define the kubcetl command to label secret for pepr operator
-  const labelSecret =
-    'kubectl apply -f tests/e2e/keycloak-client-cr.yaml -n keycloak ';
+  const applyCR =
+    "kubectl apply -f tests/e2e/keycloak-client-cr.yaml -n keycloak ";
 
   try {
-    const { stdout: labelout, stderr: labelerr } = await execAsync(labelSecret);
+    const { stdout: applyout, stderr: applyerr } = await execAsync(applyCR);
 
-    t.truthy(labelout, "Kubectl command to label new secret produced output");
+    t.truthy(applyout, "Kubectl command to label new secret produced output");
     t.falsy(
-      labelerr,
+      applyerr,
       "kubectl command to label new secret produced no stderr output",
     );
 

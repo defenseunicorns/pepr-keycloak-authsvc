@@ -1,9 +1,7 @@
 import { Capability, Log, a } from "pepr";
 import { KcAPI } from "./lib/kc-api";
 import { K8sAPI } from "./lib/kubernetes-api";
-import { OidcClientK8sSecretData } from "./lib/types";
 import { CustomSecret } from "./lib/authservice/customSecret";
-import { KeycloakClient } from "./crds/keycloakclient-v1";
 
 export const Keycloak = new Capability({
   name: "Keycloak",
@@ -61,20 +59,25 @@ When(a.ConfigMap)
     }
   });
 
-// Create a client secret
+// Create a client from CRD
 /* 
 Example steps:
-    kubectl create secret generic client1 --from-literal=realm=baby-yoda --from-literal=id=podinfo --from-literal=name=podinfo --from-literal=domain=bigbang.dev
-    kubectl label secret client1 pepr.dev/keycloak=createclient
+    Start the pepr dev cluster with:
+      npm run test:e2e:deps
+
+    Running pepr debugger:
+      npm run debug
+      kubectl apply -f tests/e2e/debug/keycloak-client-cr.yaml
 */
-When(KeycloakClient)
+When(a.GenericKind, {
+  group: "pepr.dev",
+  version: "v1",
+  kind: "KeycloakClient",
+})
+  // todo: if not supporting updates, this should only be IsCreated()
   .IsCreatedOrUpdated()
   .Validate(async request => {
     try {
-      const redirectUri =
-        request.Raw.spec.client?.redirectUris ||
-        `https://${request.Raw.spec.client.name}.${request.Raw.spec.domain}/login`;
-
       const keycloakBaseUrl =
         request.Raw.spec?.keycloakBaseUrl ||
         getKeyclockBaseURL(request.Raw.spec.domain);
@@ -87,16 +90,14 @@ When(KeycloakClient)
       const kcAPI = new KcAPI(keycloakBaseUrl);
       const clientSecret = await kcAPI.GetOrCreateClient(
         request.Raw.spec.realm,
-        request.Raw.spec.client
+        request.Raw.spec.client,
       );
 
-      const newSecret: OidcClientK8sSecretData = {
+      // Create secret data
+      const newSecret = {
         realm: request.Raw.spec.realm,
-        id: request.Raw.spec.client.clientId,
         name: request.Raw.spec.client.name,
-        domain: request.Raw.spec.domain,
         clientSecret: clientSecret,
-        redirectUri: redirectUri[0],
       };
 
       await K8sAPI.applySecret(
@@ -116,8 +117,17 @@ When(KeycloakClient)
     return request.Approve();
   });
 
-// Delete the secret from keycloak
-When(KeycloakClient)
+// Delete the Client CRD from keycloak
+/*
+Example steps:
+  Remove Client CRD:
+    kubectl delete keycloakclient client2 -n default
+*/
+When(a.GenericKind, {
+  group: "pepr.dev",
+  version: "v1",
+  kind: "KeycloakClient",
+})
   .IsDeleted()
   .Mutate(async request => {
     try {
@@ -125,7 +135,10 @@ When(KeycloakClient)
         request.Raw.spec?.keycloakBaseUrl ||
           getKeyclockBaseURL(request.Raw.spec.domain),
       );
-      kcAPI.DeleteClient(request.Raw.spec.client.clientId, request.Raw.spec.realm);
+      kcAPI.DeleteClient(
+        request.Raw.spec.client.clientId,
+        request.Raw.spec.realm,
+      );
 
       await K8sAPI.deleteSecret(
         `${request.Raw.spec.client.name}-client`,
@@ -133,5 +146,30 @@ When(KeycloakClient)
       );
     } catch (e) {
       Log.error(`error ${e}`, "Keycloak.Client.Secret.IsDeleted()");
+    }
+  });
+
+// Create Keycloak Users from CRD
+When(a.GenericKind, {
+  group: "pepr.dev",
+  version: "v1",
+  kind: "KeycloakUser",
+})
+  .IsCreatedOrUpdated()
+  .Mutate(async request => {
+    try {
+      const kcAPI = new KcAPI(
+        request.Raw.spec?.keycloakBaseUrl ||
+          getKeyclockBaseURL(request.Raw.spec.domain),
+      );
+
+      // create basic user
+      kcAPI.CreateUser(request.Raw.spec.realm, request.Raw.spec.user);
+
+      // todo: need to add additional logic for creating a users roles,
+      // todo: probably need to call the update user endpoint or fetch
+      // todo: the roles to get the role id and then update the user roles endpoint
+    } catch (e) {
+      Log.error(`error ${e}`, "Keycloak Create Users");
     }
   });
