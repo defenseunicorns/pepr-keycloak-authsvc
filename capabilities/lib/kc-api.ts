@@ -1,5 +1,6 @@
 import { KeycloakClient } from "../crds/keycloakclient-v1";
-import { KeycloakUser } from "../crds/keycloakuser-v1";
+import { KeycloakRole } from "../crds/keycloakrole-v1";
+import { User } from "../crds/keycloakuser-v1";
 import { K8sAPI } from "./kubernetes-api";
 import { fetch, fetchStatus } from "pepr";
 
@@ -271,16 +272,96 @@ export class KcAPI {
     }
   }
 
-  async UpdateOrCreateUser(realm: string, usersData: KeycloakUser) {
+  async UpdateOrCreateUser(realm: string, usersData: User) {
     await this.connect();
 
-    // todo: add functionality for updating a user
+    // Get User for checking exsistence
+    const user = await fetch(
+      `${this.keycloakBaseUrl}/admin/realms/${realm}/users?username=${usersData.username}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+        },
+      },
+    );
+
+    // if user exists update else create
+    let response;
+    if (user.data[0]) {
+      response = await fetch(
+        `${this.keycloakBaseUrl}/admin/realms/${realm}/users/${user.data[0].id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(usersData),
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    } else {
+      response = await fetch(
+        `${this.keycloakBaseUrl}/admin/realms/${realm}/users`,
+        {
+          method: "POST",
+          body: JSON.stringify(usersData),
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
+
+    if (!response.ok) {
+      throw new Error(`Failed to create User(s), ${response.status}`);
+    }
+
+    // separate step for adding Realm and Client Roles to User
+    this.UserRealmRoles(realm, usersData);
+    this.UserClientRoles(realm, usersData);
+  }
+
+  private async UserRealmRoles(realm: string, usersData: User) {
+    await this.connect();
+
+    // Roles available in realm
+    const realmRoles = await fetch(
+      `${this.keycloakBaseUrl}/admin/realms/${realm}/roles`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+        },
+      },
+    );
+
+    // Get user's id
+    const userId = await fetch(
+      `${this.keycloakBaseUrl}/admin/realms/${realm}/users?username=${usersData.username}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+        },
+      },
+    ).then(response => response.data[0].id);
+
+    // create array of keycloak realm roles to add to user
+    const userRoles: KeycloakRole[] = usersData.realmRoles.flatMap(
+      userRealmRole => {
+        return (realmRoles.data as KeycloakRole[]).filter(
+          obj => obj.name === userRealmRole,
+        );
+      },
+    );
 
     const response = await fetch(
-      `${this.keycloakBaseUrl}/admin/realms/${realm}/users`,
+      `${this.keycloakBaseUrl}/admin/realms/${realm}/users/${userId}/role-mappings/realm`,
       {
         method: "POST",
-        body: JSON.stringify(usersData),
+        body: JSON.stringify(userRoles),
         headers: {
           Authorization: `Bearer ${this.token}`,
           "Content-Type": "application/json",
@@ -289,7 +370,74 @@ export class KcAPI {
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to create User(s), ${response.status}`);
+      throw new Error(
+        `Failed to Update Or Create User Roles, ${response.status}`,
+      );
+    }
+  }
+
+  private async UserClientRoles(realm: string, usersData: User) {
+    await this.connect();
+
+    // Get user's id
+    const userId = await fetch(
+      `${this.keycloakBaseUrl}/admin/realms/${realm}/users?username=${usersData.username}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+        },
+      },
+    ).then(response => response.data[0].id);
+
+    // loop through clients in user Custom Resource
+    for (const client in usersData.clientRoles) {
+      const roles = usersData.clientRoles[client];
+
+      // Get client id
+      const clientId = await fetch(
+        `${this.keycloakBaseUrl}/admin/realms/${realm}/clients?clientId=${client}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+          },
+        },
+      ).then(response => response.data[0].id);
+
+      // Roles available in Client
+      const clientRoles = await fetch(
+        `${this.keycloakBaseUrl}/admin/realms/${realm}/users/${userId}/role-mappings/clients/${clientId}/available`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+          },
+        },
+      );
+
+      // create keycloak client roles array for user
+      const userClientRoles = (clientRoles.data as KeycloakRole[]).filter(
+        role => roles.includes(role.name),
+      );
+
+      const response = await fetch(
+        `${this.keycloakBaseUrl}/admin/realms/${realm}/users/${userId}/role-mappings/clients/${clientId}`,
+        {
+          method: "POST",
+          body: JSON.stringify(userClientRoles),
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to Update Or Create User Roles, ${response.status}`,
+        );
+      }
     }
   }
 

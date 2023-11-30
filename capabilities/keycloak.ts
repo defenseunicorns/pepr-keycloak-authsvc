@@ -63,13 +63,13 @@ When(a.ConfigMap)
 
 // Create a client from CRD
 /* 
-Example steps:
-    Start the pepr dev cluster with:
-      npm run test:e2e:deps
-
-    Running pepr debugger:
+  Example steps:
+    Debug steps:
       npm run debug
       kubectl apply -f tests/e2e/debug/keycloak-client-cr.yaml
+
+    E2E Test:
+      npm run test:e2e
 */
 When(KeycloakClient)
   .IsCreatedOrUpdated()
@@ -117,8 +117,13 @@ When(KeycloakClient)
 // Delete the Client CRD from keycloak
 /*
 Example steps:
-  Remove Client CRD:
+  Debug steps:
+    npm run debug
+    kubectl apply -f tests/e2e/debug/keycloak-client-cr.yaml
     kubectl delete keycloakclient client2 -n default
+
+  E2E Test:
+    npm run test:e2e
 */
 When(KeycloakClient)
   .IsDeleted()
@@ -143,6 +148,15 @@ When(KeycloakClient)
   });
 
 // Create Keycloak Users from CRD
+/*
+  Example steps:
+    Debug steps:
+      npm run debug
+      kubectl apply -f tests/e2e/debug/keycloak-user-cr.yaml
+
+    E2E Test:
+      npm run test:e2e
+*/
 When(KeycloakUser)
   .IsCreatedOrUpdated()
   .Mutate(async request => {
@@ -154,10 +168,6 @@ When(KeycloakUser)
 
       // create basic user
       kcAPI.UpdateOrCreateUser(request.Raw.spec.realm, request.Raw.spec.user);
-
-      // todo: need to add additional logic for creating a users roles,
-      // todo: probably need to call the update user endpoint or fetch
-      // todo: the roles to get the role id and then update the user roles endpoint
     } catch (e) {
       Log.error(`error ${e}`, "Keycloak Create Users");
     }

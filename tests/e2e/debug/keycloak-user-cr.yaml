@@ -17,8 +17,10 @@ spec:
         value: "12345"
     realmRoles:
       - "offline_access"
+      - "create-realm"
     clientRoles:
       account:
         - "manage-account"
-      master-realm:
-        - "manage-users"
+        - "view-applications"
+      broker:
+        - "read-token"

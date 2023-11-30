@@ -3,6 +3,7 @@ import util from "util";
 import { exec } from "child_process";
 import { fetch } from "pepr";
 import { RequestInfo } from "node-fetch";
+import { KeycloakRole } from "../../capabilities/crds/keycloakrole-v1";
 
 // run shell command asynchronously
 const execAsync = util.promisify(exec);
@@ -178,6 +179,87 @@ test.serial("E2E Test: Create User with Custom Resource", async t => {
     );
 
     t.is(getUser.data[0].firstName, "Pepr");
+
+    //Validate that the Realm Roles were created
+    const userRealmRoles = await getRequest(
+      "http://localhost:8080/auth/admin/realms/master/users/" +
+        getUser.data[0].id +
+        "/role-mappings/realm",
+    );
+
+    t.truthy(
+      (userRealmRoles.data as KeycloakRole[]).length === 3,
+      "There was not 3 roles associated to the user",
+    );
+
+    const defaultRole = (userRealmRoles.data as KeycloakRole[]).find(
+      obj => obj.name === "default-roles-master",
+    );
+    t.truthy(defaultRole, "Default Realm Role is not present for user");
+    const offlineRole = (userRealmRoles.data as KeycloakRole[]).find(
+      obj => obj.name === "offline_access",
+    );
+    t.truthy(offlineRole, "Offline Access Realm Role is not present for user");
+    const CreateRealmRole = (userRealmRoles.data as KeycloakRole[]).find(
+      obj => obj.name === "create-realm",
+    );
+    t.truthy(
+      CreateRealmRole,
+      "Create Realm Realm Role is not present for user",
+    );
+
+    //Validate that the Client Roles were created
+    const accountClientId = await getRequest(
+      "http://localhost:8080/auth/admin/realms/master/clients?clientId=account",
+    );
+
+    const userAccountClientRoles = await getRequest(
+      "http://localhost:8080/auth/admin/realms/master/users/" +
+        getUser.data[0].id +
+        "/role-mappings/clients/" +
+        accountClientId.data[0].id,
+    );
+
+    t.truthy(
+      (userAccountClientRoles.data as KeycloakRole[]).length === 2,
+      "There was not 2 roles associated to the user",
+    );
+
+    const manageAccountRole = (
+      userAccountClientRoles.data as KeycloakRole[]
+    ).find(obj => obj.name === "manage-account");
+    t.truthy(
+      manageAccountRole,
+      "Manage Account Client Role is not present for user",
+    );
+    const viewApplicationsRole = (
+      userAccountClientRoles.data as KeycloakRole[]
+    ).find(obj => obj.name === "view-applications");
+    t.truthy(
+      viewApplicationsRole,
+      "View Applications Client Role is not present for user",
+    );
+
+    const brokerClientId = await getRequest(
+      "http://localhost:8080/auth/admin/realms/master/clients?clientId=broker",
+    );
+
+    const userBrokerClientRoles = await getRequest(
+      "http://localhost:8080/auth/admin/realms/master/users/" +
+        getUser.data[0].id +
+        "/role-mappings/clients/" +
+        brokerClientId.data[0].id,
+    );
+
+    t.truthy(
+      (userBrokerClientRoles.data as KeycloakRole[]).length === 1,
+      "There was not 1 roles associated to the user",
+    );
+
+    const readTokenRole = (userBrokerClientRoles.data as KeycloakRole[]).find(
+      obj => obj.name === "read-token",
+    );
+    t.truthy(readTokenRole, "Read Token Client Role is not present for user");
   } catch (e) {
     t.fail("Failed to run kubectl command without errors: " + e.message);
   }
