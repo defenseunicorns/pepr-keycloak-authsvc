@@ -1,6 +1,6 @@
 import { KeycloakClient } from "../crds/keycloakclient-v1";
 import { KeycloakRole } from "../crds/keycloakrole-v1";
-import { User } from "../crds/keycloakuser-v1";
+import { KeycloakUser, User } from "../crds/keycloakuser-v1";
 import { K8sAPI } from "./kubernetes-api";
 import { fetch, fetchStatus } from "pepr";
 
@@ -169,6 +169,36 @@ export class KcAPI {
     return null;
   }
 
+  private async GetUserIdByUsername(
+    realm: string,
+    username: string,
+  ): Promise<string | null> {
+    await this.connect();
+    const response = await fetch(
+      `${this.keycloakBaseUrl}/admin/realms/${realm}/users?username=${username}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      if (response.status === fetchStatus.NOT_FOUND) {
+        return null;
+      } else {
+        throw new Error(`Failed to get User with username ${username}`);
+      }
+    }
+
+    if ((response.data as KeycloakUser[]).length > 0) {
+      return response.data[0].id;
+    }
+
+    return null;
+  }
+
   async UpdateOrCreateClient(
     realmName: string,
     client: KeycloakClient,
@@ -275,22 +305,13 @@ export class KcAPI {
   async UpdateOrCreateUser(realm: string, usersData: User) {
     await this.connect();
 
-    // Get User for checking exsistence
-    const user = await fetch(
-      `${this.keycloakBaseUrl}/admin/realms/${realm}/users?username=${usersData.username}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-        },
-      },
-    );
+    const userId = await this.GetUserIdByUsername(realm, usersData.username);
 
     // if user exists update else create
     let response;
-    if (user.data[0]) {
+    if (userId) {
       response = await fetch(
-        `${this.keycloakBaseUrl}/admin/realms/${realm}/users/${user.data[0].id}`,
+        `${this.keycloakBaseUrl}/admin/realms/${realm}/users/${userId}`,
         {
           method: "PUT",
           body: JSON.stringify(usersData),
@@ -315,12 +336,12 @@ export class KcAPI {
     }
 
     if (!response.ok) {
-      throw new Error(`Failed to create User(s), ${response.status}`);
+      throw new Error(`Failed to create/update User(s), ${response.status}`);
     }
 
     // separate step for adding Realm and Client Roles to User
-    this.UserRealmRoles(realm, usersData);
-    this.UserClientRoles(realm, usersData);
+    await this.UserRealmRoles(realm, usersData);
+    await this.UserClientRoles(realm, usersData);
   }
 
   private async UserRealmRoles(realm: string, usersData: User) {
@@ -337,16 +358,7 @@ export class KcAPI {
       },
     );
 
-    // Get user's id
-    const userId = await fetch(
-      `${this.keycloakBaseUrl}/admin/realms/${realm}/users?username=${usersData.username}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-        },
-      },
-    ).then(response => response.data[0].id);
+    const userId = await this.GetUserIdByUsername(realm, usersData.username);
 
     // create array of keycloak realm roles to add to user
     const userRoles: KeycloakRole[] = usersData.realmRoles.flatMap(
@@ -371,7 +383,7 @@ export class KcAPI {
 
     if (!response.ok) {
       throw new Error(
-        `Failed to Update Or Create User Roles, ${response.status}`,
+        `Failed to Update Or Create User Realm Roles, ${response.status}`,
       );
     }
   }
@@ -379,35 +391,17 @@ export class KcAPI {
   private async UserClientRoles(realm: string, usersData: User) {
     await this.connect();
 
-    // Get user's id
-    const userId = await fetch(
-      `${this.keycloakBaseUrl}/admin/realms/${realm}/users?username=${usersData.username}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-        },
-      },
-    ).then(response => response.data[0].id);
+    const userId = await this.GetUserIdByUsername(realm, usersData.username);
 
     // loop through clients in user Custom Resource
     for (const client in usersData.clientRoles) {
       const roles = usersData.clientRoles[client];
 
-      // Get client id
-      const clientId = await fetch(
-        `${this.keycloakBaseUrl}/admin/realms/${realm}/clients?clientId=${client}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${this.token}`,
-          },
-        },
-      ).then(response => response.data[0].id);
+      const clientId = await this.GetClientByClientId(realm, client);
 
       // Roles available in Client
       const clientRoles = await fetch(
-        `${this.keycloakBaseUrl}/admin/realms/${realm}/users/${userId}/role-mappings/clients/${clientId}/available`,
+        `${this.keycloakBaseUrl}/admin/realms/${realm}/users/${userId}/role-mappings/clients/${clientId.id}/available`,
         {
           method: "GET",
           headers: {
@@ -422,7 +416,7 @@ export class KcAPI {
       );
 
       const response = await fetch(
-        `${this.keycloakBaseUrl}/admin/realms/${realm}/users/${userId}/role-mappings/clients/${clientId}`,
+        `${this.keycloakBaseUrl}/admin/realms/${realm}/users/${userId}/role-mappings/clients/${clientId.id}`,
         {
           method: "POST",
           body: JSON.stringify(userClientRoles),
@@ -435,12 +429,34 @@ export class KcAPI {
 
       if (!response.ok) {
         throw new Error(
-          `Failed to Update Or Create User Roles, ${response.status}`,
+          `Failed to Update Or Create User Client Roles, ${response.status}`,
         );
       }
     }
   }
 
-  // todo: implement this functionality
-  async DeleteUser() {}
+  async DeleteUser(realm: string, usersData: User) {
+    await this.connect();
+
+    // Get user's id
+    const userId = await this.GetUserIdByUsername(realm, usersData.username);
+
+    // if user exists, delete
+    if (userId) {
+      const response = await fetch(
+        `${this.keycloakBaseUrl}/admin/realms/${realm}/users/${userId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+          },
+        },
+      );
+      if (!response.ok && response.status !== fetchStatus.NOT_FOUND) {
+        throw new Error(
+          `Failed to delete User with Id ${userId}, ${response.status}`,
+        );
+      }
+    }
+  }
 }

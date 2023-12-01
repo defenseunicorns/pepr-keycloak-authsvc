@@ -265,6 +265,42 @@ test.serial("E2E Test: Create User with Custom Resource", async t => {
   }
 });
 
+test.serial("E2E Test: Delete User with Custom Resource", async t => {
+  // Define the kubectl command to delete user CR
+  const deleteUser = "kubectl delete keycloakuser/user1";
+
+  // Verify user exsits in keycloak
+  const getUser = await getRequest(
+    "http://localhost:8080/auth/admin/realms/master/users?username=pepr-user",
+  );
+
+  t.truthy(getUser, "User does not exist in Keycloak");
+
+  try {
+    // Delete user from keycloak by deleting Custom Resource
+    const { stdout: deleteOut, stderr: deleteErr } =
+      await execAsync(deleteUser);
+
+    t.truthy(
+      deleteOut,
+      "Kubectl command to delete keycloakuser CR produced output",
+    );
+    t.falsy(
+      deleteErr,
+      "kubectl command to delete keycloakuser CR produced no stderr output",
+    );
+
+    // Verify user no longer exists in keycloak
+    await verifyEntity(
+      "http://localhost:8080/auth/admin/realms/master/users?username=pepr-user",
+      (obj: { username: string }) => obj.username === "pepr-user",
+      (user: string) => !user,
+      t,
+    );
+  } catch (e) {
+    t.fail("Failed to run kubectl command without errors: " + e.message);
+  }
+});
 /****************************
   Testing Helper Functions
 *****************************/

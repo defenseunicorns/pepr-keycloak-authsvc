@@ -120,7 +120,7 @@ Example steps:
   Debug steps:
     npm run debug
     kubectl apply -f tests/e2e/debug/keycloak-client-cr.yaml
-    kubectl delete keycloakclient client2 -n default
+    kubectl delete keycloakclient client2
 
   E2E Test:
     npm run test:e2e
@@ -166,11 +166,34 @@ When(KeycloakUser)
           getKeyclockBaseURL(request.Raw.spec.domain),
       );
 
-      // create basic user
       kcAPI.UpdateOrCreateUser(request.Raw.spec.realm, request.Raw.spec.user);
     } catch (e) {
       Log.error(`error ${e}`, "Keycloak Create Users");
     }
   });
 
-//todo: implement delete user functionality
+// Delete Keycloak Users from CRD
+/*
+  Example steps:
+    Debug steps:
+      npm run debug
+      kubectl apply -f tests/e2e/debug/keycloak-user-cr.yaml
+      kubectl delete keycloakuser user1
+
+    E2E Test:
+      npm run test:e2e
+*/
+When(KeycloakUser)
+  .IsDeleted()
+  .Mutate(async request => {
+    try {
+      const kcAPI = new KcAPI(
+        request.Raw.spec?.keycloakBaseUrl ||
+          getKeyclockBaseURL(request.Raw.spec.domain),
+      );
+
+      kcAPI.DeleteUser(request.Raw.spec.realm, request.Raw.spec.user);
+    } catch (e) {
+      Log.error(`error ${e}`, "Keycloak Create Users");
+    }
+  });
